@@ -11,8 +11,8 @@
 
 class LoaderInterfaceImpl : public LoaderInterface {
   public:
-    virtual TextureLoaderResult loadTexture(const std::string &url, const std::optional<std::string> &etag) const  override;
-    virtual DataLoaderResult loadData(const std::string &url, const std::optional<std::string> &etag) const  override;
+    virtual TextureLoaderResult loadTexture(const std::string &url, const std::optional<std::string> &etag)  override;
+    virtual DataLoaderResult loadData(const std::string &url, const std::optional<std::string> &etag) override;
     virtual TextureLoaderResult loadTextureWrapper(const std::string &url, const std::string etag) const = 0;
     virtual DataLoaderResult loadDataWrapper(const std::string &url, const std::string etag) const = 0;
 

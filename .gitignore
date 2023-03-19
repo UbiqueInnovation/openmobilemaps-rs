@@ -1,7 +1,6 @@
-/target
-src/maps-core/**
+**/target
+**/maps-core/**
 # don't include auto generated stuff
-cxx/**
-src/cxx/**
+**/cxx/**
 src/error
 error

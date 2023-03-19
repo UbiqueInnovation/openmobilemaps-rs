@@ -9,7 +9,7 @@
 #include "DataLoaderResult.h"
 #include "cxxgen.h"
 
-TextureLoaderResult LoaderInterfaceImpl::loadTexture(const std::string &url, const std::optional<std::string> &etag) const {
+TextureLoaderResult LoaderInterfaceImpl::loadTexture(const std::string &url, const std::optional<std::string> &etag)  {
     auto test = std::string("URL: ") + url;
     log_rs(test);
     if (etag.has_value()) {
@@ -20,7 +20,7 @@ TextureLoaderResult LoaderInterfaceImpl::loadTexture(const std::string &url, con
     }
 }
 
-DataLoaderResult LoaderInterfaceImpl::loadData(const std::string &url, const std::optional<std::string> &etag) const {
+DataLoaderResult LoaderInterfaceImpl::loadData(const std::string &url, const std::optional<std::string> &etag)  {
 
     if (etag.has_value()) {
         return this->loadDataWrapper(url, *etag);

@@ -7,38 +7,45 @@
 #include "SchedulerInterfaceStaticWrapper.h"
 #include "cxxgen1.h"
 
-void SchedulerInterfaceStaticWrapper::addTask(const std::shared_ptr<TaskInterface> &task) const {
+void SchedulerInterfaceStaticWrapper::addTask(const std::shared_ptr<TaskInterface> &task)
+{
     {
         auto inner = new_task_interface();
         inner->addTaskRust(task);
     }
 }
 
-void SchedulerInterfaceStaticWrapper::addTasks(const std::vector<std::shared_ptr<TaskInterface>> &tasks) const {
+void SchedulerInterfaceStaticWrapper::addTasks(const std::vector<std::shared_ptr<TaskInterface>> &tasks)
+{
     {
         auto inner = new_task_interface();
-        for (auto task : tasks) {
+        for (auto task : tasks)
+        {
             inner->addTaskRust(task);
         }
     }
 }
 
-void SchedulerInterfaceStaticWrapper::removeTask(const std::string &id) const {
+void SchedulerInterfaceStaticWrapper::removeTask(const std::string &id)
+{
     auto inner = new_task_interface();
     inner->removeTaskRust(id);
 }
 
-void SchedulerInterfaceStaticWrapper::clear() const {
+void SchedulerInterfaceStaticWrapper::clear()
+{
     auto inner = new_task_interface();
     inner->clearRust();
 }
 
-void SchedulerInterfaceStaticWrapper::pause() const {
+void SchedulerInterfaceStaticWrapper::pause()
+{
     auto inner = new_task_interface();
     inner->pauseRust();
 }
 
-void SchedulerInterfaceStaticWrapper::resume() const {
+void SchedulerInterfaceStaticWrapper::resume()
+{
     auto inner = new_task_interface();
     inner->resumeRust();
 }

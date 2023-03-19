@@ -18,17 +18,17 @@
 
 class Tiled2dMapLayerConfigWrapper : public Tiled2dMapLayerConfig {
   public:
-    virtual std::optional<Tiled2dMapVectorSettings> getVectorSettings() const override;
+    virtual std::optional<Tiled2dMapVectorSettings> getVectorSettings() override;
 
-    virtual std::string getCoordinateSystemIdentifier() const override;
+    virtual std::string getCoordinateSystemIdentifier() override;
 
-    virtual std::string getTileUrl(int32_t x, int32_t y, int32_t t, int32_t zoom) const override;
+    virtual std::string getTileUrl(int32_t x, int32_t y, int32_t t, int32_t zoom) override;
 
-    virtual std::vector<Tiled2dMapZoomLevelInfo> getZoomLevelInfos() const override;
+    virtual std::vector<Tiled2dMapZoomLevelInfo> getZoomLevelInfos() override;
 
-    virtual Tiled2dMapZoomInfo getZoomInfo() const override;
+    virtual Tiled2dMapZoomInfo getZoomInfo() override;
 
-    virtual std::string getLayerName() const override;
+    virtual std::string getLayerName() override;
 
     // virtual std::unique_ptr<Tiled2dMapVectorSettings> getVectorSettingsWrapped() const = 0;
 
@@ -38,4 +38,4 @@ class Tiled2dMapLayerConfigWrapper : public Tiled2dMapLayerConfig {
     }
 };
 
-std::optional<Tiled2dMapVectorSettings> Tiled2dMapLayerConfigWrapper::getVectorSettings() const { return std::nullopt; }
+std::optional<Tiled2dMapVectorSettings> Tiled2dMapLayerConfigWrapper::getVectorSettings() { return std::nullopt; }
