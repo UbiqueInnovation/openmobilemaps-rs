@@ -142,7 +142,7 @@ impl Tiled2dMapLayerConfigWrapperImpl {
     }
 
     pub fn getZoomInfo(&self) -> cxx::UniquePtr<Tiled2dMapZoomInfo> {
-        Tiled2dMapZoomInfo::new(1.0, 0, true, false, true, true).within_unique_ptr()
+        Tiled2dMapZoomInfo::new(4.0, 0, false, false, true, true).within_unique_ptr()
     }
 
     pub fn getLayerName(&self) -> cxx::UniquePtr<cxx::CxxString> {

@@ -105,3 +105,4 @@ public:
         return std::make_unique<PolygonCoord>(coords, holes);
     }
 };
+

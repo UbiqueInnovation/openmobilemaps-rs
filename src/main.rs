@@ -1,21 +1,18 @@
-use autocxx::{cxx::SharedPtr, subclass::prelude::*};
-
 use glutin::{
     dpi::{PhysicalSize, Size},
-    ContextBuilder
+    ContextBuilder,
 };
 
-use openmobilemaps_bindings::bindings::impls::{
-    LoaderInterfaceImplRs, MapCallbackInterfaceImpl, MapReadyCallbackInterfaceImpl,
-};
+use std::{default::Default, pin::Pin, time::Duration};
 
-use std::{
-    default::Default,
-    pin::Pin,
-    time::Duration,
+use openmobilemaps_sys::openmobilemaps_bindings::{
+    autocxx::subclass::CppSubclass,
+    bindings::impls::{
+        LoaderInterfaceImplRs, MapCallbackInterfaceImpl, MapReadyCallbackInterfaceImpl,
+    },
+    cxx::{CxxVector, SharedPtr},
+    *,
 };
-
-use openmobilemaps_sys::openmobilemaps_bindings::*;
 
 fn main() {
     let event_loop = glutin::event_loop::EventLoop::new();
@@ -38,7 +35,6 @@ fn main() {
     let mut frame = display.draw();
     frame.clear_color(0.0, 0.0, 1.0, 1.0);
     let _ = frame.finish();
-
 
     let mut arrays = 0;
     unsafe { gl::GenVertexArrays(10, &mut arrays) };
@@ -106,6 +102,48 @@ fn main() {
 
     builder.pin_mut().setConfig(config);
     let mut tiled = builder.pin_mut().build();
+
+    let line_layer = LineLayerInterface::create();
+    let line_layer_info_interface = LineInfoInterfaceWrapperBuilder::new().within_unique_ptr();
+    pin_mut!(line_layer_info_interface).addCoordinate(
+        Coord::new(
+            CoordinateSystemIdentifiers::EPSG2056(),
+            2784200.0,
+            1244833.3,
+            0.0,
+        )
+        .within_unique_ptr()
+        .pin_mut(),
+    );
+
+    pin_mut!(line_layer_info_interface).addCoordinate(
+        Coord::new(
+            CoordinateSystemIdentifiers::EPSG2056(),
+            2684200.0,
+            1345833.3,
+            0.0,
+        )
+        .within_unique_ptr()
+        .pin_mut(),
+    );
+    let color_red = Color::new(1.0, 0.0, 0.0, 1.0).within_box();
+    let line_style = LineStyle::new(
+        ColorStateList::new(&color_red, &color_red).within_box(),
+        ColorStateList::new(&color_red, &color_red).within_box(),
+        1.0,
+        1.0,
+        SizeType::SCREEN_PIXEL,
+        2.0,
+        make_default_dash(),
+        LineCapType::ROUND,
+    )
+    .within_unique_ptr();
+    pin_mut!(line_layer_info_interface).setStyle(line_style);
+    pin_mut!(line_layer_info_interface).setIdentifier("line");
+    let line_layer_info_interface = pin_mut!(line_layer_info_interface).build();
+    pin_mut!(line_layer).add(&line_layer_info_interface);
+    let line_layer = pin_mut!(line_layer).asLayerInterface();
+    pin_mut!(map_interface).addLayer(&line_layer);
 
     let polygon_layer = PolygonLayerInterface::create();
     let mut polygon_coord_builder = PolygonCoordBuilder::new().within_unique_ptr();
@@ -241,7 +279,7 @@ fn main() {
 
     let c: Pin<&mut MapCamera2dInterface> = unsafe { cxx_const_cast(camera.as_ref().unwrap()) };
 
-    c.moveToCenterPositionZoom(&centerCoord, 50000.0, false);
+    c.moveToCenterPositionZoom(&centerCoord, 10000.0, false);
 
     pin_mut!(map_interface).resume();
     pin_mut!(map_interface).drawFrame();
@@ -255,7 +293,7 @@ fn main() {
             counter = 0;
         }
         if let Ok(_) = invalidate_receiver.recv_timeout(Duration::from_millis(1)) {
-             pin_mut!(map_interface).invalidate();
+            pin_mut!(map_interface).invalidate();
         }
         pin_mut!(map_interface).drawFrame();
 

@@ -13,8 +13,8 @@ fn main() -> miette::Result<()> {
             .custom_gendir(format!("../cxx").into())
             .build()?;
 
-    let _ = std::fs::remove_dir_all("./src/cxx");
-    copy_dir_all("../cxx", "./src/cxx").expect("Could not copy directory");
+    let _ = std::fs::remove_dir_all("./cxx");
+    copy_dir_all("../cxx", "./cxx").expect("Could not copy directory");
 
     b.flag_if_supported("-std=c++20")
         .define("__OPENGL__", "1")

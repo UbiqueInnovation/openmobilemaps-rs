@@ -13,3 +13,4 @@ lazy_static = "1.4.0"
 tokio = {version = "1.26.0", features = ["full"]}
 ureq = "2.6.2"
 openmobilemaps-sys = { path = "./openmobilemaps-sys"}
+polyline = "0.10.0"

@@ -45,7 +45,7 @@ void ColorCircleShaderOpenGl::setColor(float red, float green, float blue, float
 }
 
 std::string ColorCircleShaderOpenGl::getFragmentShader() {
-    return UBRendererShaderCode(#version 330 precision mediump float; uniform vec4 vColor; in vec2 v_texcoord;
+    return UBRendererShaderCode(#version 330 \n  precision mediump float; uniform vec4 vColor; in vec2 v_texcoord;
                                 out vec4 fragmentColor;
 
                                 void main() {

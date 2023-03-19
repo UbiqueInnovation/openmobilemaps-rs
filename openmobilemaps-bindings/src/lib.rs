@@ -1,7 +1,10 @@
 pub mod bindings;
+pub use autocxx;
+pub use autocxx::cxx;
 pub use autocxx::prelude::*;
 
 use bindings::external_types::Tiled2dMapLayerConfigWrapperImpl;
+use cxx::CxxVector;
 pub use ffi::*;
 
 pub use bindings::{cxx_const_cast, cxx_shared_cast};
@@ -12,8 +15,11 @@ use autocxx_macro::{extern_rust_function, subclass};
 pub fn log_rs(log_statement: String) {
     log::info!("{log_statement}");
 }
+
 use crate::bindings::impls::*;
 include_cpp! {
+    #include "LineInfoInterface.h"
+    #include "LineLayerInterface.h"
     #include "CoordinateSystemIdentifiers.h"
     #include "graphics/Renderer.h"
     #include "map/MapScene.h"
@@ -47,8 +53,12 @@ include_cpp! {
     #include "SchedulerInterfaceStaticWrapper.h"
     #include "MapReadyCallbackInterface.h"
     #include "LayerReadyState.h"
+    #include "LineInfoInterfaceWrapper.h"
 
     #include "Tiled2dMapLayerConfigWrapper.h"
+    #include "ColorStateList.h"
+    #include "LineCapType.h"
+    #include "SizeType.h"
 
     safety!(unsafe_ffi)
     generate!("PolygonCoordBuilder")
@@ -56,6 +66,8 @@ include_cpp! {
     generate!("PolygonCoord")
     generate!("MapCallbackInterface")
     generate!("PolygonLayerInterface")
+    generate!("LineLayerInterface")
+
     generate!("CoordinateSystemIdentifiers")
     generate!("MapsCoreSharedModule")
     generate!("Renderer")
@@ -101,8 +113,16 @@ include_cpp! {
     subclass!("MapCallbackInterface", MapCallbackInterfaceImpl)
 
     subclass!("MapReadyCallbackInterface", MapReadyCallbackInterfaceImpl)
+    generate!("LineInfoInterfaceWrapper")
+    generate!("LineInfoInterfaceWrapperBuilder")
     generate!("Tiled2dMapLayerConfigWrapper")
     generate!("SchedulerInterfaceStaticWrapper")
+
+    generate!("ColorStateList")
+    generate!("LineCapType")
+    generate!("SizeType")
+    generate!("LineStyle")
+    generate!("make_default_dash")
 }
 
 // Copyright (c) 2023 Ubique Innovation AG <https://www.ubique.ch>
@@ -110,10 +130,6 @@ include_cpp! {
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
-use autocxx::cxx;
-use cxx::SharedPtr;
-
-use crate::ffi::*;
 
 unsafe impl Send for TaskInterface {}
 unsafe impl Sync for TaskInterface {}
@@ -179,7 +195,7 @@ mod Tiled2dMapLayerConfigWrapperImplMod {
 }
 
 impl SchedulerInterfaceRust {
-    fn addTaskRust(&self, task: SharedPtr<TaskInterface>) {
+    fn addTaskRust(&self, task: autocxx::cxx::SharedPtr<TaskInterface>) {
         let t = task.clone();
         if !is_graphics(t.clone()) {
             let spawner = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
@@ -207,5 +223,54 @@ impl SchedulerInterfaceRust {
     }
     fn resumeRust(&self) {
         println!("resume")
+    }
+}
+
+pub struct LayerInfoInterfaceRust {
+    identifier: String,
+    coordinates: UniquePtr<CxxVector<Coord>>,
+    style: UniquePtr<LineStyle>,
+}
+pub fn new_line_info_wrapper(
+    identifier: String,
+    coordinates: UniquePtr<CxxVector<Coord>>,
+    style: UniquePtr<LineStyle>,
+) -> Box<LayerInfoInterfaceRust> {
+    Box::new(LayerInfoInterfaceRust {
+        identifier,
+        coordinates,
+        style,
+    })
+}
+#[cxx::bridge]
+mod LayerInfoInterfaceMod {
+    extern "Rust" {
+        type LayerInfoInterfaceRust;
+        fn getIdentifier(&self) -> String;
+        fn getCoordinates(&self) -> UniquePtr<CxxVector<Coord>>;
+        fn getStyle(&self) -> UniquePtr<LineStyle>;
+        fn new_line_info_wrapper(
+            identifier: String,
+            coordinates: UniquePtr<CxxVector<Coord>>,
+            style: UniquePtr<LineStyle>,
+        ) -> Box<LayerInfoInterfaceRust>;
+    }
+    extern "C++" {
+        include!("LineStyle.h");
+        include!("Coord.h");
+        type LineStyle = super::LineStyle;
+        type Coord = super::Coord;
+    }
+}
+
+impl LayerInfoInterfaceRust {
+    fn getIdentifier(&self) -> String {
+        todo! {}
+    }
+    fn getCoordinates(&self) -> UniquePtr<CxxVector<Coord>> {
+        todo! {}
+    }
+    fn getStyle(&self) -> UniquePtr<LineStyle> {
+        todo! {}
     }
 }

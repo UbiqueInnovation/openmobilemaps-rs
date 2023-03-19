@@ -92,11 +92,11 @@ void ColorLineGroup2dShaderOpenGl::setStyles(const std::vector<::LineStyle> &lin
 }
 
 std::string ColorLineGroup2dShaderOpenGl::getVertexShader() {
-    return UBRendererShaderCode(
+    return UBRendererShaderCode(#version 330 \n
         precision highp float;
 
-        uniform mat4 uMVPMatrix; attribute vec2 vPosition; attribute vec2 vWidthNormal; attribute vec2 vLengthNormal;
-        attribute vec2 vPointA; attribute vec2 vPointB; attribute float vSegmentStartLPos; attribute float vStyleInfo;
+        uniform mat4 uMVPMatrix; in vec2 vPosition; in vec2 vWidthNormal; in vec2 vLengthNormal;
+        in vec2 vPointA; in vec2 vPointB; in float vSegmentStartLPos; in float vStyleInfo;
         // lineStyles: {float width, float isScaled, int capType} -> stride = 3
         uniform float lineStyles[3 * ) + std::to_string(maxNumStyles) + UBRendererShaderCode(];
         // lineStyles: {vec4 color} -> stride = 4
@@ -105,8 +105,8 @@ std::string ColorLineGroup2dShaderOpenGl::getVertexShader() {
         uniform float lineGapColors[4 * ) + std::to_string(maxNumStyles) + UBRendererShaderCode(];
         uniform int numStyles; uniform float scaleFactor;
 
-        varying float fLineIndex; varying float radius; varying float segmentStartLPos; varying float fSegmentType;
-        varying vec2 pointDeltaA; varying vec2 pointBDeltaA; varying vec4 color; varying vec4 gapColor; varying float capType;
+        out float fLineIndex; out float radius; out float segmentStartLPos; out float fSegmentType;
+        out vec2 pointDeltaA; out vec2 pointBDeltaA; out vec4 color; out vec4 gapColor; out float capType;
 
         void main() {
             float fStyleIndex = mod(vStyleInfo, 256.0);
@@ -151,12 +151,13 @@ std::string ColorLineGroup2dShaderOpenGl::getFragmentShader() {
                                 // lineDashValues: {int numDashInfo, vec4 dashArray} -> stride = 5
                                 uniform float lineDashValues[5 * ) + std::to_string(maxNumStyles) + UBRendererShaderCode(];
 
-                                varying float fLineIndex; varying float radius; varying float segmentStartLPos;
-                                varying float fSegmentType; // 0: inner segment, 1: line start segment (i.e. A is first point in
+                                out float fLineIndex; out float radius; out float segmentStartLPos;
+                                out float fSegmentType; // 0: inner segment, 1: line start segment (i.e. A is first point in
                                                             // line), 2: line end segment, 3: start and end in segment
-                                varying vec2 pointDeltaA; varying vec2 pointBDeltaA; varying vec4 color;
-                                varying float capType; // 0: butt, 1: round, 2: square
-                                varying vec4 gapColor;
+                                out vec2 pointDeltaA; out vec2 pointBDeltaA; out vec4 color;
+                                out float capType; // 0: butt, 1: round, 2: square
+                                out vec4 gapColor;
+                                out vec4 fragmentColor;
 
                                 void main() {
                                     int segmentType = int(floor(fSegmentType + 0.5));
@@ -203,8 +204,8 @@ std::string ColorLineGroup2dShaderOpenGl::getFragmentShader() {
                                         }
                                     }
 
-                                    gl_FragColor = fragColor;
-                                    gl_FragColor.a = 1.0;
-                                    gl_FragColor *= fragColor.a;
+                                    fragmentColor = fragColor;
+                                    fragmentColor.a = 1.0;
+                                    fragmentColor *= fragColor.a;
                                 });
 }

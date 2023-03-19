@@ -13,6 +13,7 @@ use autocxx::subclass::*;
 use crate::ffi::*;
 use crate::ffi;
 
+
 #[subclass(superclass("MapReadyCallbackInterface"))]
 #[derive(Default)]
 pub struct MapReadyCallbackInterfaceImpl {
