@@ -562,7 +562,7 @@ fn create_raster_layer() -> (SharedPtr<LoaderInterfaceImpl>, SharedPtr<LayerInte
     let loader = unsafe { LoaderInterfaceImpl::new1(pointer as _).within_unique_ptr() };
 
     let loader = LoaderInterfaceImpl::toShared(loader);
-    
+
     let loader_shared = LoaderInterfaceImpl::asLoaderInterface(loader.clone());
     builder.pin_mut().addLoader(loader_shared);
 
@@ -683,6 +683,8 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
         x: height as f32,
         y: height as f32,
     };
+
+    let train_picture = image::open("train.png").unwrap();
     let (text_width, text_height) = text_size(scale, &font, destination);
     let background_color = Rgba([64_u8, 72_u8, 137_u8, 250_u8]);
     let image_width = text_width + 20 + 50;
@@ -690,7 +692,7 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
     println!("{} / {}", image_width, image_height);
     let mut image = RgbaImage::new(image_width as u32, image_height as u32);
     let full_rect =
-        imageproc::rect::Rect::at(0, 0).of_size(image_width as u32, image_height as u32 - 20);
+        imageproc::rect::Rect::at(0, 0).of_size(image_width as u32, image_height as u32 - 19);
     draw_filled_rect_mut(&mut image, full_rect, background_color);
 
     draw_filled_rect_mut(
@@ -723,7 +725,43 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
     );
     draw_filled_rect_mut(
         &mut image,
-        imageproc::rect::Rect::at(image_width - 10, 5).of_size(5, 5),
+        imageproc::rect::Rect::at(image_width - 10, 5).of_size(10, 5),
+        background_color,
+    );
+
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(0, image_height - 20 - 10).of_size(10, 10),
+        Rgba([0, 0, 0, 0]),
+    );
+    draw_filled_circle_mut(&mut image, (5, image_height - 20 - 5), 5, background_color);
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(0, image_height - 20 - 10).of_size(5, 5),
+        background_color,
+    );
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(5, image_height - 20 - 10).of_size(10, 10),
+        background_color,
+    );
+
+
+
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(image_width - 10, image_height - 20 - 10).of_size(10, 10),
+        Rgba([0, 0, 0, 0]),
+    );
+    draw_filled_circle_mut(&mut image, (image_width - 5, image_height - 20 - 5), 5, background_color);
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(image_width - 10, image_height - 20 - 10).of_size(10, 5),
+        background_color,
+    );
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(image_width - 10, image_height - 20-10).of_size(5, 10),
         background_color,
     );
 
@@ -731,7 +769,7 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
         &mut image,
         Rgba([255, 255, 255, 255]),
         50,
-        image_height / 2 - text_height / 2 - 10 - 5,
+        image_height / 2 - text_height / 2 - 10,
         scale,
         &font,
         destination,
@@ -744,7 +782,11 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
         &vec![left_corner, right_corner, bottom_point],
         background_color,
     );
-
+    let (width, height) = train_picture.dimensions();
+    let scale = text_height as f64/height as f64;
+    let scaled_width = (scale * width as f64) as i32;
+    let train_picture = image::imageops::resize(&train_picture, scaled_width as u32, text_height as u32 , image::imageops::FilterType::Lanczos3);
+    image::imageops::replace(&mut image, &train_picture, 10, 10);
     (image_width, image_height, image.into_vec())
 }
 
