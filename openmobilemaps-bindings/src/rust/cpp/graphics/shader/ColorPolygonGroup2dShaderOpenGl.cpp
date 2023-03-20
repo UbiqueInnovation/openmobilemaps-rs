@@ -89,11 +89,12 @@ std::string ColorPolygonGroup2dShaderOpenGl::getVertexShader() {
 std::string ColorPolygonGroup2dShaderOpenGl::getFragmentShader() {
     return UBRendererShaderCode(precision highp float;
 
-                                varying vec4 color;
+                                in vec4 color;
+                                out vec4 fragColor;
 
                                 void main() {
-                                    gl_FragColor = color;
-                                    gl_FragColor.a = 1.0;
-                                    gl_FragColor *= color.a;
+                                    fragColor = color;
+                                    fragColor.a = 1.0;
+                                    fragColor *= color.a;
                                 });
 }

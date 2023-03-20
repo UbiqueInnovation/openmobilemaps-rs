@@ -150,12 +150,12 @@ std::string ColorLineShaderOpenGl::getFragmentShader() {
                                 // lineDashValues: {int numDashInfo, vec4 dashArray} -> stride = 5
                                 uniform float lineDashValues[5];
 
-                                out float radius; out float segmentStartLPos;
-                                out float fSegmentType; // 0: inner segment, 1: line start segment (i.e. A is first point in
+                                in float radius; in float segmentStartLPos;
+                                in float fSegmentType; // 0: inner segment, 1: line start segment (i.e. A is first point in
                                 // line), 2: line end segment, 3: start and end in segment
-                                out vec2 pointDeltaA; out vec2 pointBDeltaA; out vec4 color;
-                                out float capType; // 0: butt, 1: round, 2: square
-                                out vec4 gapColor;
+                                in vec2 pointDeltaA; in vec2 pointBDeltaA; out vec4 color;
+                                in float capType; // 0: butt, 1: round, 2: square
+                                in vec4 gapColor;
                                 out vec4 fragmentColor;
 
                                 void main() {
