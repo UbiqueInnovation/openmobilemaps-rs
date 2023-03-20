@@ -3,21 +3,30 @@ pub use autocxx;
 pub use autocxx::cxx;
 pub use autocxx::prelude::*;
 
-use bindings::external_types::Tiled2dMapLayerConfigWrapperImpl;
+use bindings::external_types::{Tiled2dMapLayerConfigWrapperImpl, LoaderInterfaceWrapperImpl};
 use cxx::CxxVector;
 pub use ffi::*;
 
 pub use bindings::{cxx_const_cast, cxx_shared_cast};
 
-use autocxx_macro::{extern_rust_function, subclass};
+use autocxx_macro::{extern_rust_function};
 
 #[extern_rust_function]
 pub fn log_rs(log_statement: String) {
+    println!("{log_statement}");
     log::info!("{log_statement}");
 }
 
+unsafe impl Send for MapInterface {}
+unsafe impl Sync for MapInterface {}
+unsafe impl Send for MapReadyCallbackInterface {}
+unsafe impl Sync for MapReadyCallbackInterface {}
+unsafe impl Send for RectCoord {}
+unsafe impl Sync for RectCoord {}
+
 use crate::bindings::impls::*;
 include_cpp! {
+    #include "BoundingBox.h"
     #include "LineInfoInterface.h"
     #include "LineLayerInterface.h"
     #include "CoordinateSystemIdentifiers.h"
@@ -50,6 +59,7 @@ include_cpp! {
     #include "PolygonInfo.h"
     #include "PolygonCoord.h"
     #include "Vec2I.h"
+    #include "IconType.h"
     #include "SchedulerInterfaceStaticWrapper.h"
     #include "MapReadyCallbackInterface.h"
     #include "LayerReadyState.h"
@@ -59,14 +69,22 @@ include_cpp! {
     #include "ColorStateList.h"
     #include "LineCapType.h"
     #include "SizeType.h"
+    #include "Vec2F.h"
+
+    #include "IconInfoInterface.h"
+
+    #include "IconLayerInterface.h"
 
     safety!(unsafe_ffi)
+    generate!("IconType")
+    generate!("BoundingBox")
     generate!("PolygonCoordBuilder")
     generate!("LayerReadyState")
     generate!("PolygonCoord")
     generate!("MapCallbackInterface")
     generate!("PolygonLayerInterface")
     generate!("LineLayerInterface")
+    generate!("Vec2F")
 
     generate!("CoordinateSystemIdentifiers")
     generate!("MapsCoreSharedModule")
@@ -105,12 +123,15 @@ include_cpp! {
     generate!("to_map_callback_interface_shared_pointer")
     generate!("make_polygon_coord")
     generate!("transform_ready_state")
+    generate!("transform_icon_info_interface")
     generate!("MapScene")
     // subclass!("SchedulerInterfaceStaticWrapper", SchedulerInterfaceImpl)
-    subclass!("LoaderInterfaceImpl", LoaderInterfaceImplRs)
+
     subclass!("TextureHolderInterface", TextureHolderInterfaceImpl)
+    subclass!("IconInfoInterface", IconInfoInterfaceImpl)
     // subclass!("Tiled2dMapLayerConfigWrapper", Tiled2dMapLayerConfigWrapperImpl)
     subclass!("MapCallbackInterface", MapCallbackInterfaceImpl)
+    generate!("IconLayerInterface")
 
     subclass!("MapReadyCallbackInterface", MapReadyCallbackInterfaceImpl)
     generate!("LineInfoInterfaceWrapper")
@@ -170,10 +191,13 @@ mod custom {
     }
 }
 
-pub fn new_layer_config_inner_wrapper() -> Box<Tiled2dMapLayerConfigWrapperImpl> {
-    Box::new(Tiled2dMapLayerConfigWrapperImpl)
+pub trait Tiled2dMapLayerConfigTrait {
+    fn getCoordinateSystemIdentifier(&self) -> UniquePtr<cxx::CxxString>;
+    fn getTileUrl(&self, x: i32, y: i32, t: i32, zoom: i32) -> UniquePtr<cxx::CxxString>;
+    fn getZoomLevelInfos(&self) -> UniquePtr<CxxVector<Tiled2dMapZoomLevelInfo>>;
+    fn getZoomInfo(&self) -> UniquePtr<Tiled2dMapZoomInfo>;
+    fn getLayerName(&self) -> UniquePtr<cxx::CxxString>;
 }
-
 #[cxx::bridge]
 mod Tiled2dMapLayerConfigWrapperImplMod {
     extern "Rust" {
@@ -183,7 +207,7 @@ mod Tiled2dMapLayerConfigWrapperImplMod {
         fn getZoomLevelInfos(&self) -> UniquePtr<CxxVector<Tiled2dMapZoomLevelInfo>>;
         fn getZoomInfo(&self) -> UniquePtr<Tiled2dMapZoomInfo>;
         fn getLayerName(&self) -> UniquePtr<CxxString>;
-        fn new_layer_config_inner_wrapper() -> Box<Tiled2dMapLayerConfigWrapperImpl>;
+
     }
     extern "C++" {
         include!("Tiled2dMapLayerConfigWrapper.h");
@@ -191,7 +215,9 @@ mod Tiled2dMapLayerConfigWrapperImplMod {
         include!("Tiled2dMapZoomInfo.h");
         type Tiled2dMapZoomLevelInfo = super::Tiled2dMapZoomLevelInfo;
         type Tiled2dMapZoomInfo = super::Tiled2dMapZoomInfo;
+
     }
+    impl Box<Tiled2dMapLayerConfigWrapperImpl> {}
 }
 
 impl SchedulerInterfaceRust {
@@ -273,4 +299,44 @@ impl LayerInfoInterfaceRust {
     fn getStyle(&self) -> UniquePtr<LineStyle> {
         todo! {}
     }
+}
+
+pub trait LoaderInterfaceTrait {
+    fn loadTextureWrapper(
+        &self,
+        url: &cxx::CxxString,
+        etag: cxx::UniquePtr<cxx::CxxString>,
+    ) -> cxx::UniquePtr<TextureLoaderResult>;
+    fn loadDataWrapper(
+        &self,
+        url: &cxx::CxxString,
+        etag: cxx::UniquePtr<cxx::CxxString>,
+    ) -> cxx::UniquePtr<DataLoaderResult>;
+}
+
+#[cxx::bridge]
+mod LoaderInterfaceWrapperMod {
+    extern "Rust" {
+        type LoaderInterfaceWrapperImpl;
+        fn loadTextureWrapper(
+            &self,
+            url: &CxxString,
+            etag: UniquePtr<CxxString>,
+        ) -> UniquePtr<TextureLoaderResult>;
+        fn loadDataWrapper(
+            &self,
+            url: &CxxString,
+            etag: UniquePtr<CxxString>,
+        ) -> UniquePtr<DataLoaderResult>;
+
+    }
+    extern "C++" {
+        include!("LoaderInterface.h");
+        include!("TextureLoaderResult.h");
+        include!("DataLoaderResult.h");
+        type TextureLoaderResult = super::TextureLoaderResult;
+        type DataLoaderResult = super::DataLoaderResult;
+
+    }
+    impl Box<LoaderInterfaceWrapperImpl> {}
 }

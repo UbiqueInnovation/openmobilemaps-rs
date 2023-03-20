@@ -9,15 +9,26 @@
 #include "Tiled2dMapVectorSettings.h"
 #include "Tiled2dMapZoomInfo.h"
 #include <memory>
+#include <optional>
+#include "cxx.h"
 
-#define base_call(function, ...)                                                                                                   \
-    {                                                                                                                              \
-        auto inner = new_layer_config_inner_wrapper();                                                                             \
-        return *(inner->function(__VA_ARGS__));                                                                                       \
+#define base_call(function, ...)                                    \
+    {                                                               \
+        return *(this->rustBox->function(__VA_ARGS__));                     \
     }
 
-class Tiled2dMapLayerConfigWrapper : public Tiled2dMapLayerConfig {
-  public:
+struct Tiled2dMapLayerConfigWrapperImpl;
+
+class Tiled2dMapLayerConfigWrapper : public Tiled2dMapLayerConfig
+{
+    ::rust::Box<Tiled2dMapLayerConfigWrapperImpl> rustBox;
+public:
+    ~Tiled2dMapLayerConfigWrapper() {};
+    Tiled2dMapLayerConfigWrapper(const Tiled2dMapLayerConfigWrapper &) = delete;
+    Tiled2dMapLayerConfigWrapper &operator=(const Tiled2dMapLayerConfigWrapper &) = delete;
+
+    Tiled2dMapLayerConfigWrapper(Tiled2dMapLayerConfigWrapperImpl *ptr);
+
     virtual std::optional<Tiled2dMapVectorSettings> getVectorSettings() override;
 
     virtual std::string getCoordinateSystemIdentifier() override;
@@ -32,7 +43,8 @@ class Tiled2dMapLayerConfigWrapper : public Tiled2dMapLayerConfig {
 
     // virtual std::unique_ptr<Tiled2dMapVectorSettings> getVectorSettingsWrapped() const = 0;
 
-    static std::shared_ptr<Tiled2dMapLayerConfig> asTiled2dMapLayerConfig(std::unique_ptr<Tiled2dMapLayerConfigWrapper> myself) {
+    static std::shared_ptr<Tiled2dMapLayerConfig> asTiled2dMapLayerConfig(std::unique_ptr<Tiled2dMapLayerConfigWrapper> myself)
+    {
         std::shared_ptr<Tiled2dMapLayerConfigWrapper> ptr = std::move(myself);
         return std::dynamic_pointer_cast<Tiled2dMapLayerConfig>(ptr);
     }

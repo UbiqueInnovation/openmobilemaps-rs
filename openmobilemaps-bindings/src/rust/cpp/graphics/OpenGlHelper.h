@@ -21,8 +21,6 @@ class OpenGlHelper {
         int error;
         while ((error = glGetError()) != GL_NO_ERROR) {
             LogError << "GL ERROR: " << glOperation << " " << error <<= "\n";
-            // auto log = std::string("GL ERROR") + std::string(glOperation) + std::string(" ") + std::to_string(error);
-            // log_rs(log);
         }
     }
 };

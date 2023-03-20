@@ -19,6 +19,7 @@
 #include "TextureLoaderResult.h"
 #include "Tiled2dMapRasterLayerInterface.h"
 #include "Tiled2dMapZoomLevelInfo.h"
+#include "IconInfoInterface.h"
 #include <iostream>
 #include <memory>
 #include <string>
@@ -26,15 +27,19 @@
 #include <chrono>
 #include <thread>
 
+
 template <typename T>
-std::shared_ptr<T> transform_unique_internal(std::unique_ptr<T> &ptr) { return ptr; }
+std::shared_ptr<T> transform_unique_internal(std::unique_ptr<T> &ptr)
+{
+    return ptr;
+}
 
 std::shared_ptr<SchedulerInterface> transform_unique(std::unique_ptr<SchedulerInterfaceStaticWrapper>);
 std::shared_ptr<TextureHolderInterface> transform_texture_holder_interface(std::unique_ptr<TextureHolderInterface> ptr);
 std::shared_ptr<MapReadyCallbackInterface> transform_ready_state(std::unique_ptr<MapReadyCallbackInterface> ptr) { return ptr; }
 
 std::unique_ptr<TextureLoaderResult> make_loader_result(std::shared_ptr<TextureHolderInterface>, LoaderStatus status);
-
+std::shared_ptr<IconInfoInterface> transform_icon_info_interface(std::unique_ptr<IconInfoInterface> ptr) { return ptr;  }
 std::shared_ptr<LayerInterface> down_cast_to_layer_interface(std::shared_ptr<Tiled2dMapRasterLayerInterface> ptr);
 
 std::shared_ptr<MapCallbackInterface> to_map_callback_interface_shared_pointer(std::unique_ptr<MapCallbackInterface> interface)

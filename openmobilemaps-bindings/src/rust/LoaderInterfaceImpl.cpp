@@ -8,23 +8,44 @@
 #include "TextureLoaderResult.h"
 #include "DataLoaderResult.h"
 #include "cxxgen.h"
+#include "cxxgen4.h"
 
-TextureLoaderResult LoaderInterfaceImpl::loadTexture(const std::string &url, const std::optional<std::string> &etag)  {
+LoaderInterfaceImpl::~LoaderInterfaceImpl()
+{
+    log_rs("Destructor called");
+}
+
+LoaderInterfaceImpl::LoaderInterfaceImpl(LoaderInterfaceWrapperImpl *ptr) : rustBox(::rust::Box<LoaderInterfaceWrapperImpl>::from_raw(ptr)), cachedResponse()
+{
+}
+
+TextureLoaderResult LoaderInterfaceImpl::loadTexture(const std::string &url, const std::optional<std::string> &etag)
+{
     auto test = std::string("URL: ") + url;
     log_rs(test);
-    if (etag.has_value()) {
-        return this->loadTextureWrapper(url, *etag);
-    } else {
-        log_rs(std::string("calling wrapper function"));
-        return this->loadTextureWrapper(url, std::string(""));
+    if (etag.has_value())
+    {
+        auto result = this->rustBox->loadTextureWrapper(url, std::make_unique<std::string>(*etag));
+        auto holder = TextureLoaderResult(result->data, result->etag, result->status, result->errorCode);
+        return holder;
+    }
+    else
+    {
+        auto result = this->rustBox->loadTextureWrapper(url, std::make_unique<std::string>(""));
+        auto holder = TextureLoaderResult(result->data, result->etag, result->status, result->errorCode);
+        return holder;
     }
 }
 
-DataLoaderResult LoaderInterfaceImpl::loadData(const std::string &url, const std::optional<std::string> &etag)  {
+DataLoaderResult LoaderInterfaceImpl::loadData(const std::string &url, const std::optional<std::string> &etag)
+{
 
-    if (etag.has_value()) {
-        return this->loadDataWrapper(url, *etag);
-    } else {
-        return this->loadDataWrapper(url, std::string(""));
+    if (etag.has_value())
+    {
+        return *this->rustBox->loadDataWrapper(url, std::make_unique<std::string>(*etag)).release();
+    }
+    else
+    {
+        return *this->rustBox->loadDataWrapper(url, std::make_unique<std::string>(std::string(""))).release();
     }
 }

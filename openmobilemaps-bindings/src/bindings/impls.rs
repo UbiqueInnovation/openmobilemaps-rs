@@ -6,31 +6,90 @@
 
 use std::sync::mpsc::Sender;
 
+use autocxx::{subclass::*, WithinUniquePtr};
 use autocxx_macro::subclass;
 use image::GenericImageView;
-use autocxx::subclass::*;
 
-use crate::ffi::*;
 use crate::ffi;
-
+use crate::ffi::*;
+use std::sync::Mutex;
+use crate::LoaderInterfaceTrait;
 
 #[subclass(superclass("MapReadyCallbackInterface"))]
 #[derive(Default)]
-pub struct MapReadyCallbackInterfaceImpl {
-    pub sender: Option<Sender<LayerReadyState>>,
+pub struct MapReadyCallbackInterfaceImpl {}
+lazy_static::lazy_static! {
+    pub static ref MAP_READY_CALLBACK: Mutex<Option<Sender<LayerReadyState>>> = Mutex::new(None);
 }
 
 impl MapReadyCallbackInterface_methods for MapReadyCallbackInterfaceImpl {
     fn stateDidUpdate(&mut self, state: LayerReadyState) {
-        match state {
-            LayerReadyState::READY => println!("READY"),
-            LayerReadyState::NOT_READY => {}
-            LayerReadyState::ERROR => println!("ERROR"),
-            LayerReadyState::TIMEOUT_ERROR => println!("TIMEOUT_ERROR"),
+        if let Ok(guard) = MAP_READY_CALLBACK.lock() {
+            if let Some(sender) = guard.as_ref() {
+                if state == LayerReadyState::READY {
+                    let _ = sender.send(LayerReadyState::READY);
+                }
+            }
         }
-        if let Some(sender) = self.sender.as_ref() {
-            let _ = sender.send(state);
-        }
+    }
+}
+
+#[subclass(superclass("IconInfoInterface"))]
+#[derive(Default)]
+pub struct IconInfoInterfaceImpl {
+    pub texture_data: Vec<u8>,
+    pub image_width: usize,
+    pub image_height: usize,
+    pub coordinate: (String, f64, f64),
+    pub anchor: (f64, f64),
+}
+
+impl IconInfoInterface_methods for IconInfoInterfaceImpl {
+    fn getIdentifier(&mut self) -> cxx::UniquePtr<cxx::CxxString> {
+        make_string("test")
+    }
+
+    fn getTexture(&mut self) -> cxx::SharedPtr<crate::TextureHolderInterface> {
+        println!("loading texture for icon");
+        let mut interface = TextureHolderInterfaceImpl {
+            image_width: self.image_width,
+            image_height: self.image_height,
+            texture_data: self.texture_data.clone(),
+            ..Default::default()
+        };
+        let mut load_result = TextureHolderInterfaceImpl::new_cpp_owned(interface);
+        let tex_holder_iface =
+            TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
+
+        transform_texture_holder_interface(tex_holder_iface)
+    }
+
+    fn setCoordinate(&mut self, coord: &ffi::Coord) {}
+
+    fn getCoordinate(&mut self) -> cxx::UniquePtr<ffi::Coord> {
+        Coord::new(
+            make_string(&self.coordinate.0),
+            self.coordinate.1,
+            self.coordinate.2,
+            0.0,
+        )
+        .within_unique_ptr()
+    }
+
+    fn setIconSize(&mut self, size: &ffi::Vec2F) {}
+
+    fn getIconSize(&mut self) -> crate::UniquePtr<ffi::Vec2F> {
+        ffi::Vec2F::new(self.image_width as f32, self.image_height as f32).within_unique_ptr()
+    }
+
+    fn setType(&mut self, scaleType: ffi::IconType) {}
+
+    fn getType(&mut self) -> ffi::IconType {
+        ffi::IconType::INVARIANT
+    }
+
+    fn getIconAnchor(&mut self) -> crate::UniquePtr<ffi::Vec2F> {
+        ffi::Vec2F::new(self.anchor.0 as f32, self.anchor.1 as f32).within_unique_ptr()
     }
 }
 
@@ -81,16 +140,13 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
 
     fn attachToGraphics(&mut self) -> i32 {
         if !self.attached {
-            if self.image_data.is_empty() {
-                println!("WAAAAAH NO IMAGE DATA");
-
-                return 0;
-            }
-
             unsafe {
                 let internal_format = gl::RGBA;
+                println!("load texture with gl");
+                println!("datalength: {} {} {} {}", self.texture_data[0],self.texture_data[1],self.texture_data[2],self.texture_data[3] );
                 unsafe {
                     gl::GenTextures(1, &mut self.id);
+                    
                     gl::BindTexture(gl::TEXTURE_2D, self.id);
 
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
@@ -140,6 +196,7 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
     fn clearFromGraphics(&mut self) {
         // println!("");
         // println!("Clear texture");
+        // println!("{}", self.texture_data.len());
         if self.usage_counter == 0 {
             self.attached = false;
             unsafe { gl::DeleteTextures(1, &mut self.id) };
@@ -151,19 +208,19 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
     }
 }
 
-#[subclass(superclass("LoaderInterfaceImpl"))]
-#[derive(Default)]
-pub struct LoaderInterfaceImplRs {
-    pub display: Option<glium::Display>,
-}
+// #[subclass(superclass("LoaderInterfaceImpl"))]
+// #[derive(Default)]
+// pub struct LoaderInterfaceImplRs {
+//     pub display: Option<glium::Display>,
+// }
 
-impl LoaderInterfaceImpl_methods for LoaderInterfaceImplRs {
+pub struct DefaultLoaderInterface;
+impl LoaderInterfaceTrait for DefaultLoaderInterface {
     fn loadTextureWrapper(
         &self,
         url: &cxx::CxxString,
         etag: cxx::UniquePtr<cxx::CxxString>,
     ) -> cxx::UniquePtr<TextureLoaderResult> {
-        // println!("In load texture interface");
         let Ok(data) = ureq::get(url.to_str().unwrap()).call() else {
             let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
             let tex_holder_iface =
@@ -193,14 +250,11 @@ impl LoaderInterfaceImpl_methods for LoaderInterfaceImplRs {
             image_height: image_dimensions.1 as usize,
             image_data: databytes,
             texture_data: img_buffer.to_vec(),
-            display: Some(self.display.as_ref().unwrap().clone()),
-
             ..Default::default()
         };
         let mut load_result = TextureHolderInterfaceImpl::new_cpp_owned(interface);
         let tex_holder_iface =
             TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
-
         let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
         make_loader_result(tex_holder_iface, LoaderStatus::OK)
     }

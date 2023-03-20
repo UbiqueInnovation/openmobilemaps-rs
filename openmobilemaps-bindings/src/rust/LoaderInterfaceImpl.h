@@ -8,16 +8,26 @@
 
 #include "LoaderInterface.h"
 #include <optional>
+#include "cxx.h"
 
-class LoaderInterfaceImpl : public LoaderInterface {
-  public:
-    virtual TextureLoaderResult loadTexture(const std::string &url, const std::optional<std::string> &etag)  override;
-    virtual DataLoaderResult loadData(const std::string &url, const std::optional<std::string> &etag) override;
-    virtual TextureLoaderResult loadTextureWrapper(const std::string &url, const std::string etag) const = 0;
-    virtual DataLoaderResult loadDataWrapper(const std::string &url, const std::string etag) const = 0;
+struct LoaderInterfaceWrapperImpl;
 
-    static std::shared_ptr<LoaderInterfaceImpl> toShared(std::unique_ptr<LoaderInterfaceImpl> ptr) { return ptr; }
-    static std::shared_ptr<LoaderInterface> asLoaderInterface(std::shared_ptr<LoaderInterfaceImpl> myself) {
-        return std::static_pointer_cast<LoaderInterface>(myself);
-    }
+class LoaderInterfaceImpl : public LoaderInterface
+{
+  ::rust::Box<LoaderInterfaceWrapperImpl> rustBox;
+  std::unique_ptr<TextureLoaderResult> cachedResponse;
+
+public:
+  ~LoaderInterfaceImpl();
+  LoaderInterfaceImpl(const LoaderInterfaceImpl &) = delete;
+  LoaderInterfaceImpl &operator=(const LoaderInterfaceImpl &) = delete;
+  LoaderInterfaceImpl(LoaderInterfaceWrapperImpl *ptr);
+  virtual TextureLoaderResult loadTexture(const std::string &url, const std::optional<std::string> &etag) override;
+  virtual DataLoaderResult loadData(const std::string &url, const std::optional<std::string> &etag) override;
+
+  static std::shared_ptr<LoaderInterfaceImpl> toShared(std::unique_ptr<LoaderInterfaceImpl> ptr) { return ptr; }
+  static std::shared_ptr<LoaderInterface> asLoaderInterface(std::shared_ptr<LoaderInterfaceImpl> myself)
+  {
+    return std::static_pointer_cast<LoaderInterface>(myself);
+  }
 };

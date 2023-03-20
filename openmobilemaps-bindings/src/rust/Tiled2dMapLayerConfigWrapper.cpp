@@ -5,7 +5,14 @@
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 #include "Tiled2dMapLayerConfigWrapper.h"
+#include "cxxgen.h"
+#include "cxxgen1.h"
 #include "cxxgen2.h"
+#include "cxxgen3.h"
+
+Tiled2dMapLayerConfigWrapper::Tiled2dMapLayerConfigWrapper(Tiled2dMapLayerConfigWrapperImpl *ptr) : rustBox(::rust::Box<Tiled2dMapLayerConfigWrapperImpl>::from_raw(ptr))
+{
+}
 
 std::string Tiled2dMapLayerConfigWrapper::getCoordinateSystemIdentifier() base_call(getCoordinateSystemIdentifier);
 

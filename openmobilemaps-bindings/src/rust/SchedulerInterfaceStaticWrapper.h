@@ -12,6 +12,7 @@ struct SchedulerInterfaceRust;
 class SchedulerInterfaceStaticWrapper : public SchedulerInterface
 {
 public:
+
   virtual void addTask(const std::shared_ptr<TaskInterface> &task) override;
 
   virtual void addTasks(const std::vector<std::shared_ptr<TaskInterface>> &tasks) override;
