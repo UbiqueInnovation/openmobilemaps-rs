@@ -1,0 +1,8 @@
+{
+    "files.associations": {
+        "*.ksy": "yaml",
+        "utility": "cpp"
+    },
+    "cmake.sourceDirectory": "${workspaceFolder}/maps-core/.build/checkouts/djinni",
+    "svg.preview.background": "transparent"
+}
