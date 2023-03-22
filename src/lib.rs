@@ -104,7 +104,12 @@ pub struct Coordinate {
 #[derive(Deserialize)]
 pub struct Workspace {}
 
-pub fn draw_map(station: &Station, meetween_slogan : &str) -> Vec<u8> {
+pub fn draw_map_for(url: &str, index: usize, meetween_slogan: &str) -> Vec<u8> {
+    let connections = ureq::get(&url).call().unwrap().into_string().unwrap();
+    let meetween_connections: MeetweenConnections = serde_json::from_str(&connections).unwrap();
+    draw_map(&meetween_connections.stations[index], &meetween_slogan)
+}
+pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
     let colors_array: [[[u8; 4]; 2]; 6] = [
         [html_hex!("#FF5157"), html_hex!("#FFF")],
         [html_hex!("#6474A6"), html_hex!("#FFF")],
