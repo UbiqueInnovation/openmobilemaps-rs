@@ -49,6 +49,7 @@ std::string AlphaShaderOpenGl::getFragmentShader() {
                                 void main() {
                                     vec4 c = texture(sampler, v_texcoord);
                                     fragmentColor = c * alpha;
+                                    fragmentColor.rgb = fragmentColor.rgb * fragmentColor.a;
                                 });
 }
 

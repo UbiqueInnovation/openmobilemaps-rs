@@ -13,7 +13,7 @@
 # echo "Xvfb is running."
 # dbus-run-session -- sway &
 # Execute passed command.
-"openmobilemaps-rs"
+openmobilemaps-rs "$@"
 
 cp glium-example-screenshot_framebuffer.png output/
 # glxinfo | head -180

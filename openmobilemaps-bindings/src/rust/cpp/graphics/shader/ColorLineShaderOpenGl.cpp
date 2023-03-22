@@ -153,7 +153,7 @@ std::string ColorLineShaderOpenGl::getFragmentShader() {
                                 in float radius; in float segmentStartLPos;
                                 in float fSegmentType; // 0: inner segment, 1: line start segment (i.e. A is first point in
                                 // line), 2: line end segment, 3: start and end in segment
-                                in vec2 pointDeltaA; in vec2 pointBDeltaA; out vec4 color;
+                                in vec2 pointDeltaA; in vec2 pointBDeltaA; in vec4 color;
                                 in float capType; // 0: butt, 1: round, 2: square
                                 in vec4 gapColor;
                                 out vec4 fragmentColor;
