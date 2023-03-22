@@ -15,7 +15,7 @@
 # Execute passed command.
 openmobilemaps-rs "$@"
 
-cp glium-example-screenshot_framebuffer.png output/
+cp *.png output/
 # glxinfo | head -180
 # trap "echo 'Stopping'; kill -SIGTERM $Xvfb_pid" SIGINT SIGTERM
 # # Wait for process to end.

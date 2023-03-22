@@ -300,10 +300,37 @@ pub fn draw_map(station: &Station) -> Vec<u8> {
     let image = image::DynamicImage::ImageRgba8(image).flipv();
     let mut image = image.resize_exact(1200, 630, image::imageops::FilterType::Lanczos3);
 
-    let bottomstuff = image::open("./bottomstuff.jpeg").unwrap();
-    let bottomstuff = bottomstuff.resize_exact(1200, 78, image::imageops::FilterType::Lanczos3);
-    let bottomsheet = image.dimensions().1 as i64 - 78;
-    image::imageops::replace(&mut image, &bottomstuff, 0, bottomsheet);
+    // let bottomstuff = image::open("./bottomstuff.jpeg").unwrap();
+    // let bottomstuff = bottomstuff.resize_exact(1200, 78, image::imageops::FilterType::Lanczos3);
+    // let bottomsheet = image.dimensions().1 as i64 - 78;
+    // image::imageops::replace(&mut image, &bottomstuff, 0, bottomsheet);
+    let background_color = Rgba([64_u8, 72_u8, 137_u8, 250_u8]);
+    let font = Vec::from(include_bytes!("../AvertaStd-BoldItalic.ttf") as &[u8]);
+    let font = Font::try_from_vec(font).unwrap();
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(0, 630 - 78).of_size(1200, 78),
+        background_color,
+    );
+    let height = 30;
+    let scale = Scale {
+        x: height as f32,
+        y: height as f32,
+    };
+    let (_, height) = text_size(scale, &font, "Der beste Treffpunkt für alle.");
+    draw_text_mut(
+        &mut image,
+        Rgba([255, 255, 255, 255]),
+        40,
+        630 - 39 - height / 2,
+        scale,
+        &font,
+        "Der beste Treffpunkt für alle.",
+    );
+
+    let meetween_logo = RgbaImage::from_raw(300, 44, load_meetween()).unwrap();
+    image::imageops::replace(&mut image, &meetween_logo, 1200 - 300 - 40, 630 - 39 - 22);
+
     let mut output_buffer = Cursor::new(Vec::with_capacity(1200 * 630));
     image.write_to(&mut output_buffer, ImageFormat::Jpeg);
 
@@ -780,7 +807,7 @@ pub fn get_start_point(
         &image,
         output_width as u32,
         output_height as u32,
-        image::imageops::FilterType::Lanczos3,
+        image::imageops::FilterType::CatmullRom,
     );
     image.into_vec()
 }
@@ -801,6 +828,21 @@ fn load_icon(icon: u8) -> Vec<u8> {
     resvg::render(
         &tree,
         usvg::FitTo::Size(48, 48),
+        tiny_skia::Transform::default(),
+        pixmap.as_mut(),
+    )
+    .unwrap();
+    pixmap.data_mut().to_vec()
+}
+
+fn load_meetween() -> Vec<u8> {
+    let svg_data = include_str!("../assets/meetween.svg");
+    let opt = usvg::Options::default();
+    let tree = usvg::Tree::from_str(svg_data, &opt).unwrap();
+    let mut pixmap = tiny_skia::Pixmap::new(300, 44).unwrap();
+    resvg::render(
+        &tree,
+        usvg::FitTo::Height(44),
         tiny_skia::Transform::default(),
         pixmap.as_mut(),
     )
@@ -950,6 +992,7 @@ pub fn get_destination_box(destination: &str, icon: u8) -> (i32, i32, Vec<u8>) {
         text_height as u32,
         image::imageops::FilterType::CatmullRom,
     );
+
     image::imageops::replace(&mut image, &train_picture, 10, 10);
     (image_width, image_height, image.into_vec())
 }
