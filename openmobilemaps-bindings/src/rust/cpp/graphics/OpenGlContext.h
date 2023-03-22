@@ -14,6 +14,9 @@
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <memory>
+#include <cstring>
+#include <mutex>
 
 class OpenGlContext : public RenderingContextInterface, std::enable_shared_from_this<OpenGlContext> {
   public:

@@ -8,6 +8,7 @@
 
 #include "LoaderInterface.h"
 #include <optional>
+#include <memory>
 #include "cxx.h"
 
 struct LoaderInterfaceWrapperImpl;

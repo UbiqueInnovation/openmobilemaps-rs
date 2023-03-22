@@ -35,7 +35,7 @@ void ColorShaderOpenGl::setupProgram(const std::shared_ptr<::RenderingContextInt
     glLinkProgram(program); // create OpenGL program executables
     OpenGlHelper::checkGlError("glLinkProgram");
 
-    log_rs(std::string("Store Program: ") + programName);
+    // log_rs(std::string("Store Program: ") + programName);
     openGlContext->storeProgram(programName, program);
 }
 

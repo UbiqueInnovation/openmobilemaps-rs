@@ -16,16 +16,18 @@ fn main() -> miette::Result<()> {
     let _ = std::fs::remove_dir_all("./cxx");
     copy_dir_all("../cxx", "./cxx").expect("Could not copy directory");
 
-    b.flag_if_supported("-std=c++20")
-        .define("__OPENGL__", "1")
-        .compile("openmobilemaps-bindings-sys-cxx"); // arbitrary library name, pick anything
+    let mut the_b = b.flag_if_supported("-std=c++20")
+        .define("__OPENGL__", "1");
+    if cfg!(target_os = "linux") {
+        the_b = the_b.define("__LINUX_BUILD__", "1");
+    }
+        the_b.compile("openmobilemaps-bindings-sys-cxx"); // arbitrary library name, pick anything
 
     println!("cargo:rerun-if-changed=src/bindings/external_types.rs");
     println!("cargo:rerun-if-changed=src/generated.rs");
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=src/bindings/impls.rs");
     println!("cargo:rerun-if-changed=src/bindings/manual.rs");
-    println!("cargo:rustc-link-lib=openmobilemaps-bindings-sys-cxx");
     Ok(())
 }
 

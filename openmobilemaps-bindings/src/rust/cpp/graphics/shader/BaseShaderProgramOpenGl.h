@@ -15,6 +15,10 @@
 #include "Logger.h"
 #include "ShaderProgramInterface.h"
 #include "opengl_wrapper.h"
+#include <mutex>
+#include <memory>
+#include <cstring>
+#include <string>
 
 class BaseShaderProgramOpenGl {
   protected:

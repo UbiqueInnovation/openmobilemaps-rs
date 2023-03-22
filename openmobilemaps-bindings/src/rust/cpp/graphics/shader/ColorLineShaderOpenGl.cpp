@@ -32,7 +32,7 @@ void ColorLineShaderOpenGl::setupProgram(const std::shared_ptr<::RenderingContex
 
     glLinkProgram(program); // create OpenGL program executables
 
-    log_rs(std::string("Storing program: ") + programName);
+    // log_rs(std::string("Storing program: ") + programName);
 
     openGlContext->storeProgram(programName, program);
 }

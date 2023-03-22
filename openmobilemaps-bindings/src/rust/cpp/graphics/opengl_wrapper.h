@@ -23,6 +23,14 @@
 
 #endif
 
+#if defined __LINUX_BUILD__
+#define GL_GLEXT_PROTOTYPES
+#include <GL/gl.h>
+#include <GL/glu.h>
+#include <GL/glut.h>
+#include <GL/glext.h>
+#endif
+
 #ifdef _WIN32
 // Enable function definitions in the GL headers below
 #define GL_GLEXT_PROTOTYPES

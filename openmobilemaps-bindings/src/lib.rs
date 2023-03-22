@@ -13,7 +13,7 @@ use autocxx_macro::{extern_rust_function};
 
 #[extern_rust_function]
 pub fn log_rs(log_statement: String) {
-    println!("{log_statement}");
+    // println!("{log_statement}");
     log::info!("{log_statement}");
 }
 

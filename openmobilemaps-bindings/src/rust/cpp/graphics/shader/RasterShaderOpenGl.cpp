@@ -51,7 +51,7 @@ void RasterShaderOpenGl::setStyle(const RasterShaderStyle &style) {
 }
 
 std::string RasterShaderOpenGl::getFragmentShader() {
-    log_rs("get fragment shader\n");
+    // log_rs("get fragment shader\n");
     return UBRendererShaderCode(#version 330 \n precision mediump float; uniform sampler2D sampler; in vec2 v_texcoord;
                                 uniform highp float styleValues[5]; out vec4 fragmentColor;
 

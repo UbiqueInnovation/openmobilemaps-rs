@@ -1,16 +1,23 @@
-use glutin::{
+use euclid::Size2D;
+use glium::glutin::{
     dpi::{PhysicalSize, Size},
     ContextBuilder,
 };
 
-use glium::Display;
+use glium::backend::glutin::headless::Headless;
 use image::{GenericImageView, Rgba, RgbaImage};
 use imageproc::drawing::{
     draw_filled_circle_mut, draw_filled_rect_mut, draw_polygon_mut, draw_text_mut, text_size,
 };
 use rusttype::{Font, Scale};
+use surfman::{
+    Connection, ContextAttributeFlags, ContextAttributes, GLVersion, SurfaceAccess, SurfaceType,
+};
 
-use std::{default::Default, time::Duration};
+use std::{
+    default::Default,
+    time::{Duration, Instant},
+};
 
 use openmobilemaps_sys::openmobilemaps_bindings::{
     autocxx::subclass::CppSubclass,
@@ -26,12 +33,13 @@ use openmobilemaps_sys::openmobilemaps_bindings::{
 };
 
 fn main() {
+    let start = Instant::now();
     println!("Setup opengl");
-    let display = setup_opengl();
+    let (mut display, mut context) = setup_opengl();
 
     println!("Create map");
     let (rx, map_interface, invalidate_receiver, ready_state_interface, ready_state_receiver) =
-        setup_map(&display);
+        setup_map();
     println!("Add raster layer");
     let (loader_interface_ptr, raster_layer) = create_raster_layer();
 
@@ -144,6 +152,8 @@ fn main() {
     let icon_layer = pin_mut!(icon_layer).asLayerInterface();
     pin_mut!(map_interface).insertLayerAbove(&icon_layer, &line_layer);
 
+    println!("added icon layer");
+
     let center_coord = Coord::new(
         CoordinateSystemIdentifiers::EPSG4326(),
         7.9078318,
@@ -176,9 +186,11 @@ fn main() {
     });
 
     //
+
     println!("Start rendering loop");
+    display.make_context_current(&context);
     loop {
-        let frame = display.draw();
+        // let frame = display.draw();
         if let Ok(task) = rx.recv_timeout(Duration::from_millis(1)) {
             run_task(task);
         }
@@ -190,7 +202,8 @@ fn main() {
         }
 
         pin_mut!(map_interface).drawFrame();
-        let _ = frame.finish();
+        // frame.finish().unwrap();
+
         if let Ok(state) = ready_state_receiver.recv_timeout(Duration::from_millis(1)) {
             if state == LayerReadyState::READY {
                 break;
@@ -199,11 +212,39 @@ fn main() {
     }
 
     println!("finishing frame");
+    pin_mut!(map_interface).drawFrame();
+    pin_mut!(map_interface).drawFrame();
+    pin_mut!(map_interface).drawFrame();
+    unsafe {
+        gl::Flush();
+        gl::Finish();
+    };
+    std::thread::sleep(Duration::from_millis(5));
+    let mut buffer = vec![0u8; 1200 * 630 * 4];
+    unsafe {
+        gl::ReadPixels(
+            0,
+            0,
+            1200,
+            630,
+            gl::RGBA,
+            gl::UNSIGNED_BYTE,
+            buffer.as_mut_ptr() as _,
+        );
+    }
+    let mut max_vertex_attribs = 0;
+    unsafe { gl::GetIntegerv(gl::MAX_VERTEX_ATTRIBS, &mut max_vertex_attribs) };
+    println!("GL_MAX_VERTEX_ATTRIBS {}", max_vertex_attribs);
 
-    let image: glium::texture::RawImage2d<'_, u8> = display.read_front_buffer().unwrap();
+    display.destroy_context(&mut context);
 
-    let image =
-        image::ImageBuffer::from_raw(image.width, image.height, image.data.into_owned()).unwrap();
+    println!("{} {} {} {}", buffer[0], buffer[1], buffer[2], buffer[3]);
+
+    // println!("{}", display.get_opengl_renderer_string());
+
+    // let image: glium::texture::RawImage2d<'_, u8> = display.read_front_buffer().unwrap();
+
+    let image = image::ImageBuffer::from_raw(1200, 630, buffer).unwrap();
 
     let image = image::DynamicImage::ImageRgba8(image).flipv();
     let mut image = image.resize_exact(1200, 630, image::imageops::FilterType::Lanczos3);
@@ -212,38 +253,102 @@ fn main() {
     let bottomstuff = bottomstuff.resize_exact(1200, 78, image::imageops::FilterType::Lanczos3);
     let bottomsheet = image.dimensions().1 as i64 - 78;
     image::imageops::replace(&mut image, &bottomstuff, 0, bottomsheet);
-    image.save("glium-example-screenshot.png").unwrap();
+    image
+        .save("glium-example-screenshot_framebuffer.png")
+        .unwrap();
+    let end = Instant::now();
+    println!("Took {}ms", (end - start).as_millis());
 }
 
-fn setup_opengl() -> Display {
-    let event_loop = glutin::event_loop::EventLoop::new();
-    let wb = glutin::window::WindowBuilder::new()
-        .with_inner_size(Size::Physical(PhysicalSize {
-            width: 1200,
-            height: 630,
-        }))
-        .with_visible(false);
-    let cb = ContextBuilder::new()
-        .with_double_buffer(Some(true))
-        .with_multisampling(32)
-        .with_depth_buffer(8)
-        .with_stencil_buffer(8)
-        .with_pixel_format(24, 8)
-        .with_vsync(true);
-    let display = glium::Display::new(wb, cb, &event_loop).unwrap();
+fn setup_opengl() -> (surfman::Device, surfman::Context) {
+    // let event_loop = glium::glutin::event_loop::EventLoop::new();
+    // let wb = glium::glutin::window::WindowBuilder::new()
+    //     .with_inner_size(Size::Physical(PhysicalSize {
+    //         width: 1200,
+    //         height: 630,
+    //     }))
+    //     .with_visible(true);
+    // let cb = ContextBuilder::new()
+    //     // .with_double_buffer(Some(true))
+    //     // .with_multisampling(256)
+    //     // .with_depth_buffer(8)
+    //     // .with_stencil_buffer(8)
+    //     .with_pixel_format(24, 8);
+    // // .with_vsync(true);
+    // let display = glium::Display::new(wb, cb, &event_loop).unwrap();
+    // let event_loop = glium::glutin::event_loop::EventLoop::new();
+    // // let cb = ContextBuilder::new();
+    // let size = PhysicalSize {
+    //     width: 1200,
+    //     height: 630,
+    // };
+    // // let context = cb.build_headless(&event_loop, size).unwrap();
+    // // let context = unsafe { context.treat_as_current() };
+    // // let display = glium::backend::glutin::headless::Headless::new(context).unwrap();
 
-    gl::load_with(|s| display.gl_window().get_proc_address(s) as *const std::os::raw::c_void);
+    // let ctx = glium::glutin::ContextBuilder::new()
+    //     .build_headless(&event_loop, size)
+    //     .unwrap();
+    // let context = unsafe { ctx.treat_as_current() };
+
+    // Unlike the other example above, nobody created a context for your window, so you need to create one.
+    //     glium::glutin::HeadlessRendererBuilder::new(1200,630);
+    // let event_loop = glium::glutin::event_loop::EventLoop::new();
+    // let cb = glium::glutin::ContextBuilder::new().with_gl_profile(glium::glutin::GlProfile::Core).with_gl(glium::glutin::GlRequest::Latest);
+    // let size = PhysicalSize {
+    //     width: 1200,
+    //     height: 630,
+    // };
+
+    // let context = cb.build_headless(&event_loop, size).unwrap();
+    // let context = unsafe { context.treat_as_current() };
+    // let display = glium::backend::glutin::headless::Headless::new(context).unwrap();
+    let connection = Connection::new().unwrap();
+    let adapter = connection.create_adapter().unwrap();
+    let mut device = connection.create_device(&adapter).unwrap();
+    let context_attributes = ContextAttributes {
+        version: GLVersion::new(4, 3),
+        flags: ContextAttributeFlags::ALPHA
+            | ContextAttributeFlags::STENCIL
+            | ContextAttributeFlags::DEPTH,
+    };
+    let context_descriptor = device
+        .create_context_descriptor(&context_attributes)
+        .unwrap();
+    let mut context = device.create_context(&context_descriptor, None).unwrap();
+
+    let surface = device
+        .create_surface(
+            &context,
+            SurfaceAccess::GPUOnly,
+            SurfaceType::Generic {
+                size: Size2D::new(1200, 630),
+            },
+        )
+        .unwrap();
+    device
+        .bind_surface_to_context(&mut context, surface)
+        .unwrap();
+
+    device.make_context_current(&context).unwrap();
+
+    gl::load_with(|s| device.get_proc_address(&context, s) as *const std::os::raw::c_void);
 
     let mut arrays = 0;
-    unsafe { gl::GenVertexArrays(10, &mut arrays) };
+    unsafe { gl::GenVertexArrays(1, &mut arrays) };
     unsafe { gl::BindVertexArray(arrays) };
 
     unsafe {
         gl::Disable(gl::CULL_FACE);
         gl::Disable(gl::DEPTH_TEST);
         gl::Disable(gl::BLEND);
+        // gl::Enable(gl::MULTISAMPLE);
+        let surface_info = device.context_surface_info(&context).unwrap().unwrap();
+        gl::BindFramebuffer(gl::FRAMEBUFFER, surface_info.framebuffer_object);
+        gl::Viewport(0, 0, 1200, 630);
     }
-    display
+    // glium::HeadlessRenderer::new(context).unwrap()
+    (device, context)
 }
 
 fn new_poly_line(
@@ -570,9 +675,7 @@ fn create_raster_layer() -> (SharedPtr<LoaderInterfaceImpl>, SharedPtr<LayerInte
     (loader, down_cast_to_layer_interface(tiled))
 }
 
-fn setup_map(
-    display: &Display,
-) -> (
+fn setup_map() -> (
     std::sync::mpsc::Receiver<SharedPtr<TaskInterface>>,
     SharedPtr<MapInterface>,
     std::sync::mpsc::Receiver<()>,
@@ -746,14 +849,17 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
         background_color,
     );
 
-
-
     draw_filled_rect_mut(
         &mut image,
         imageproc::rect::Rect::at(image_width - 10, image_height - 20 - 10).of_size(10, 10),
         Rgba([0, 0, 0, 0]),
     );
-    draw_filled_circle_mut(&mut image, (image_width - 5, image_height - 20 - 5), 5, background_color);
+    draw_filled_circle_mut(
+        &mut image,
+        (image_width - 5, image_height - 20 - 5),
+        5,
+        background_color,
+    );
     draw_filled_rect_mut(
         &mut image,
         imageproc::rect::Rect::at(image_width - 10, image_height - 20 - 10).of_size(10, 5),
@@ -761,7 +867,7 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
     );
     draw_filled_rect_mut(
         &mut image,
-        imageproc::rect::Rect::at(image_width - 10, image_height - 20-10).of_size(5, 10),
+        imageproc::rect::Rect::at(image_width - 10, image_height - 20 - 10).of_size(5, 10),
         background_color,
     );
 
@@ -783,9 +889,14 @@ fn get_destination_box(destination: &str) -> (i32, i32, Vec<u8>) {
         background_color,
     );
     let (width, height) = train_picture.dimensions();
-    let scale = text_height as f64/height as f64;
+    let scale = text_height as f64 / height as f64;
     let scaled_width = (scale * width as f64) as i32;
-    let train_picture = image::imageops::resize(&train_picture, scaled_width as u32, text_height as u32 , image::imageops::FilterType::Lanczos3);
+    let train_picture = image::imageops::resize(
+        &train_picture,
+        scaled_width as u32,
+        text_height as u32,
+        image::imageops::FilterType::Lanczos3,
+    );
     image::imageops::replace(&mut image, &train_picture, 10, 10);
     (image_width, image_height, image.into_vec())
 }

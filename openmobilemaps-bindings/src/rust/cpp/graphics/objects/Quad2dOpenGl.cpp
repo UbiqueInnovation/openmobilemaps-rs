@@ -72,11 +72,11 @@ void Quad2dOpenGl::setup(const std::shared_ptr<::RenderingContextInterface> &con
 
     int program = openGlContext->getProgram(shaderProgram->getProgramName());
     prepareGlData(openGlContext, program);
-    log_rs("prepare texture data\n");
+    // log_rs("prepare texture data\n");
     prepareTextureCoordsGlData(openGlContext, program);
 
     programHandle = program;
-    log_rs("Vertices updated\n");
+    // log_rs("Vertices updated\n");
     ready = true;
 }
 
@@ -130,7 +130,7 @@ void Quad2dOpenGl::prepareTextureCoordsGlData(const std::shared_ptr<OpenGlContex
     OpenGlHelper::checkGlError("glBufferData");
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     OpenGlHelper::checkGlError("glBindBuffer");
-    log_rs("texture bound \n");
+    // log_rs("texture bound \n");
     usesTextureCoords = true;
     textureCoordsReady = true;
 }
@@ -158,7 +158,7 @@ void Quad2dOpenGl::loadTexture(const std::shared_ptr<::RenderingContextInterface
 
         factorHeight = textureHolder->getImageHeight() * 1.0f / textureHolder->getTextureHeight();
         factorWidth = textureHolder->getImageWidth() * 1.0f / textureHolder->getTextureWidth();
-        log_rs(std::to_string(textureHolder->getImageWidth()));
+        // log_rs(std::to_string(textureHolder->getImageWidth()));
         adjustTextureCoordinates();
 
         if (ready) {
@@ -166,7 +166,7 @@ void Quad2dOpenGl::loadTexture(const std::shared_ptr<::RenderingContextInterface
             int program = openGlContext->getProgram(shaderProgram->getProgramName());
             prepareTextureCoordsGlData(openGlContext, program);
         }
-        log_rs("Texture loaded");
+        // log_rs("Texture loaded");
         this->textureHolder = textureHolder;
     }
 }

@@ -45,11 +45,11 @@ void Polygon2dOpenGl::setup(const std::shared_ptr<::RenderingContextInterface> &
     if (ready || !dataReady)
         return;
 
-    log_rs("ready to start\n");
+    // log_rs("ready to start\n");
     std::shared_ptr<OpenGlContext> openGlContext = std::static_pointer_cast<OpenGlContext>(context);
     if (openGlContext->getProgram(shaderProgram->getProgramName()) == 0) {
         shaderProgram->setupProgram(openGlContext);
-        log_rs("setupProgram \n");
+        // log_rs("setupProgram \n");
     }
     programHandle = openGlContext->getProgram(shaderProgram->getProgramName());
 

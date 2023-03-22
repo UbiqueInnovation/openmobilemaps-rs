@@ -10,6 +10,10 @@
 
 #pragma once
 
+#if defined __LINUX_BUILD__
+#include <cstring>
+#endif
+
 #include "GraphicsObjectInterface.h"
 #include "LineGroup2dInterface.h"
 #include "OpenGlContext.h"
@@ -18,6 +22,7 @@
 #include "ShaderProgramInterface.h"
 #include "opengl_wrapper.h"
 #include <mutex>
+
 
 class LineGroup2dOpenGl : public GraphicsObjectInterface,
                           public LineGroup2dInterface,

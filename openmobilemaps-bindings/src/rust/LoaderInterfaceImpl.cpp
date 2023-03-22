@@ -22,7 +22,7 @@ LoaderInterfaceImpl::LoaderInterfaceImpl(LoaderInterfaceWrapperImpl *ptr) : rust
 TextureLoaderResult LoaderInterfaceImpl::loadTexture(const std::string &url, const std::optional<std::string> &etag)
 {
     auto test = std::string("URL: ") + url;
-    log_rs(test);
+    // log_rs(test);
     if (etag.has_value())
     {
         auto result = this->rustBox->loadTextureWrapper(url, std::make_unique<std::string>(*etag));

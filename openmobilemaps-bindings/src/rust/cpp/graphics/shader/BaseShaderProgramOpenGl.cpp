@@ -17,16 +17,16 @@ int BaseShaderProgramOpenGl::loadShader(int type, std::string shaderCode) {
     // create a vertex shader type (GLES20.GL_VERTEX_SHADER)
     // or a fragment shader type (GLES20.GL_FRAGMENT_SHADER)
     int shader = glCreateShader(type);
-    log_rs("Compiling Shader\n");
+    // log_rs("Compiling Shader\n");
 
     // LogInfo << "Compiling Shader Code: " << shaderCode <<= "\n\n";
 
     // add the source code to the shader and compile it
-    log_rs("--> 1\n");
+    // log_rs("--> 1\n");
     const char *code = shaderCode.c_str();
-    log_rs("--> 2\n");
+    // log_rs("--> 2\n");
     int code_length = int(shaderCode.size());
-    log_rs("--> 3\n");
+    // log_rs("--> 3\n");
     glShaderSource(shader, 1, &code, &code_length);
     OpenGlHelper::checkGlError("glShaderSource");
     glCompileShader(shader);
@@ -36,7 +36,7 @@ int BaseShaderProgramOpenGl::loadShader(int type, std::string shaderCode) {
     glGetShaderiv(shader, GL_COMPILE_STATUS, &isCompiled);
     OpenGlHelper::checkGlError("glGetShaderiv");
     if (isCompiled == GL_FALSE) {
-        log_rs("compiling failed\n ");
+        // log_rs("compiling failed\n ");
         GLint maxLength = 0;
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &maxLength);
         OpenGlHelper::checkGlError("glGetShaderiv");
@@ -79,14 +79,14 @@ void BaseShaderProgramOpenGl::checkGlProgramLinking(GLuint program) {
         glGetProgramInfoLog(program, maxLength, &maxLength, &infoLog[0]);
         OpenGlHelper::checkGlError("glGetProgramInfoLog");
 
-        log_rs("linking failed");
+        // log_rs("linking failed");
         LogError << "OpenGL Program Linking failed:";
         auto info_log = "";
         for (auto a : infoLog) {
             LogError << a;
             info_log += a;
         }
-        log_rs(info_log);
+        // log_rs(info_log);
 
         LogError <<= ".";
     }

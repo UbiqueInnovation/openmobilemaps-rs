@@ -10,7 +10,14 @@ fn main() {
     println!("cargo:rerun-if-changed=src/lib.rs");
     println!("cargo:rerun-if-changed=../maps-core");
     println!("cargo:rerun-if-changed=../openmobilemaps-bindings/src");
-    cc::Build::new()
+    let mut ccbuild = cc::Build::new();
+    if cfg!(target_os = "macos") {
+        ccbuild.define("__MAXOS_BUILD__", "1");
+    }
+    if cfg!(target_os = "linux") {
+        ccbuild.define("__LINUX_BUILD__", "1");
+    }
+    ccbuild
         .flag_if_supported("-std=c++20")
         .cpp(true)
         .define("__OPENGL__", "1")
@@ -65,6 +72,12 @@ fn main() {
         .include("../maps-core/shared/src/map/layers/icon")
         .include("../maps-core/shared/src/map/layers/text")
         .compile("openmobilemaps-cxx");
-    println!("cargo:rustc-link-lib=openmobilemaps-cxx");
-    println!("cargo:rustc-link-lib=framework=OpenGL");
+    if cfg!(target_os = "macos") {
+        println!("cargo:rustc-link-lib=framework=OpenGL");
+    }
+    if cfg!(target_os = "linux") {
+        println!("cargo:rustc-link-lib=GL");
+        println!("cargo:rustc-link-lib=GLU");
+        println!("cargo:rustc-link-lib=glut");
+    }
 }

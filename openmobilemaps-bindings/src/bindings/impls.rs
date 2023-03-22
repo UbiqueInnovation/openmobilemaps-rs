@@ -12,8 +12,8 @@ use image::GenericImageView;
 
 use crate::ffi;
 use crate::ffi::*;
-use std::sync::Mutex;
 use crate::LoaderInterfaceTrait;
+use std::sync::Mutex;
 
 #[subclass(superclass("MapReadyCallbackInterface"))]
 #[derive(Default)]
@@ -50,7 +50,7 @@ impl IconInfoInterface_methods for IconInfoInterfaceImpl {
     }
 
     fn getTexture(&mut self) -> cxx::SharedPtr<crate::TextureHolderInterface> {
-        println!("loading texture for icon");
+        // println!("loading texture for icon");
         let mut interface = TextureHolderInterfaceImpl {
             image_width: self.image_width,
             image_height: self.image_height,
@@ -146,16 +146,12 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
                 println!("datalength: {} {} {} {}", self.texture_data[0],self.texture_data[1],self.texture_data[2],self.texture_data[3] );
                 unsafe {
                     gl::GenTextures(1, &mut self.id);
-                    
+
                     gl::BindTexture(gl::TEXTURE_2D, self.id);
 
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_S, gl::CLAMP_TO_EDGE as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_WRAP_T, gl::CLAMP_TO_EDGE as i32);
-                    gl::TexParameteri(
-                        gl::TEXTURE_2D,
-                        gl::TEXTURE_MIN_FILTER,
-                        gl::LINEAR_MIPMAP_LINEAR as i32,
-                    );
+                    gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MIN_FILTER, gl::LINEAR as i32);
                     gl::TexParameteri(gl::TEXTURE_2D, gl::TEXTURE_MAG_FILTER, gl::LINEAR as i32);
                     gl::TexImage2D(
                         gl::TEXTURE_2D,
@@ -168,7 +164,7 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
                         gl::UNSIGNED_BYTE,
                         self.texture_data.as_ptr() as *const _,
                     );
-                    gl::GenerateMipmap(gl::TEXTURE_2D);
+                    // gl::GenerateMipmap(gl::TEXTURE_2D);
                 }
             };
             // let image = glium::texture::RawImage2d::from_raw_rgba(
