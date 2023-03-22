@@ -21,7 +21,7 @@ fn main() {
     std::fs::write("tmp_connection.json", &connections);
     let meetween_connections: MeetweenConnections = serde_json::from_str(&connections).unwrap();
 
-    let olten = draw_map(&meetween_connections.stations[0]);
+    let olten = draw_map(&meetween_connections.stations[0], "Der beste Treffpunkt für alle.");
     let destination = meetween_connections.stations[0].meeting_point.name.clone();
     std::fs::write(format!("{destination}.png"), olten);
 

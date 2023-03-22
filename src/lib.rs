@@ -104,7 +104,7 @@ pub struct Coordinate {
 #[derive(Deserialize)]
 pub struct Workspace {}
 
-pub fn draw_map(station: &Station) -> Vec<u8> {
+pub fn draw_map(station: &Station, meetween_slogan : &str) -> Vec<u8> {
     let colors_array: [[[u8; 4]; 2]; 6] = [
         [html_hex!("#FF5157"), html_hex!("#FFF")],
         [html_hex!("#6474A6"), html_hex!("#FFF")],
@@ -317,7 +317,7 @@ pub fn draw_map(station: &Station) -> Vec<u8> {
         x: height as f32,
         y: height as f32,
     };
-    let (_, height) = text_size(scale, &font, "Der beste Treffpunkt für alle.");
+    let (_, height) = text_size(scale, &font, meetween_slogan);
     draw_text_mut(
         &mut image,
         Rgba([255, 255, 255, 255]),
@@ -325,7 +325,7 @@ pub fn draw_map(station: &Station) -> Vec<u8> {
         630 - 39 - height / 2,
         scale,
         &font,
-        "Der beste Treffpunkt für alle.",
+        meetween_slogan,
     );
 
     let meetween_logo = RgbaImage::from_raw(300, 44, load_meetween()).unwrap();
@@ -823,7 +823,7 @@ fn load_icon(icon: u8) -> Vec<u8> {
     };
     let opt = usvg::Options::default();
     let tree = usvg::Tree::from_str(svg_data, &opt).unwrap();
-    let pixmap_size = tree.size.to_screen_size();
+
     let mut pixmap = tiny_skia::Pixmap::new(48, 48).unwrap();
     resvg::render(
         &tree,
