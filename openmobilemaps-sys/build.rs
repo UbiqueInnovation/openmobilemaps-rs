@@ -20,6 +20,11 @@ fn main() {
     ccbuild
         .flag_if_supported("-std=c++20")
         .cpp(true)
+        .flag_if_supported("-include memory")
+        .flag_if_supported("-include string")
+        .flag_if_supported("-include cstring")
+        .flag_if_supported("-include cmath")
+        .flag_if_supported("-include mutex")
         .define("__OPENGL__", "1")
         .files(
             glob("../maps-core/shared/**/*.cpp")

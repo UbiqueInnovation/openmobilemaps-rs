@@ -867,7 +867,12 @@ pub fn get_destination_box(destination: &str, icon: u8) -> (i32, i32, Vec<u8>) {
         imageproc::rect::Rect::at(0, image_height - 20 - 20).of_size(20, 20),
         Rgba([0, 0, 0, 0]),
     );
-    draw_filled_circle_mut(&mut image, (10, image_height - 20 - 10), 10, background_color);
+    draw_filled_circle_mut(
+        &mut image,
+        (10, image_height - 20 - 10),
+        10,
+        background_color,
+    );
     draw_filled_rect_mut(
         &mut image,
         imageproc::rect::Rect::at(0, image_height - 20 - 20).of_size(20, 10),
@@ -901,7 +906,11 @@ pub fn get_destination_box(destination: &str, icon: u8) -> (i32, i32, Vec<u8>) {
         background_color,
     );
 
-    draw_filled_rect_mut(&mut image, imageproc::rect::Rect::at(10, image_height-20).of_size(image_width as u32 -20,1), background_color);
+    draw_filled_rect_mut(
+        &mut image,
+        imageproc::rect::Rect::at(10, image_height - 20).of_size(image_width as u32 - 20, 1),
+        background_color,
+    );
 
     draw_text_mut(
         &mut image,
@@ -914,13 +923,24 @@ pub fn get_destination_box(destination: &str, icon: u8) -> (i32, i32, Vec<u8>) {
     );
     let left_corner = imageproc::point::Point::new(image_width / 2 - 10, image_height - 20);
     let right_corner = imageproc::point::Point::new(image_width / 2 + 10, image_height - 20);
-    let bottom_point = imageproc::point::Point::new(image_width / 2, image_height-3);
+    let bottom_point = imageproc::point::Point::new(image_width / 2, image_height - 3);
     draw_polygon_mut(
         &mut image,
-        &vec![left_corner, right_corner, bottom_point],
+        &[left_corner, right_corner, bottom_point],
         background_color,
     );
-    draw_filled_circle_mut(&mut image, (image_width/2, image_height-3), r, Rgba([255,255,255,255]));
+    draw_filled_circle_mut(
+        &mut image,
+        (image_width / 2, image_height - 5),
+        5,
+        Rgba([0, 0, 0, 255]),
+    );
+    draw_filled_circle_mut(
+        &mut image,
+        (image_width / 2, image_height - 5),
+        3,
+        Rgba([255, 255, 255, 255]),
+    );
     let (width, height) = train_picture.dimensions();
     let scale = text_height as f64 / height as f64;
     let scaled_width = (scale * width as f64) as i32;
@@ -933,7 +953,6 @@ pub fn get_destination_box(destination: &str, icon: u8) -> (i32, i32, Vec<u8>) {
     image::imageops::replace(&mut image, &train_picture, 10, 10);
     (image_width, image_height, image.into_vec())
 }
-
 
 #[cfg(test)]
 mod lib_test {

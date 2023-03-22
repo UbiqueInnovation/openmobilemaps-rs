@@ -44,6 +44,7 @@ ADD ./AvertaStd-Bold.ttf AvertaStd-Bold.ttf
 ADD ./bottomstuff.jpeg bottomstuff.jpeg
 ADD ./Cargo.lock Cargo.lock
 ADD ./Cargo.toml Cargo.toml
+ADD ./assets assets
 
 RUN mold -run cargo install --path=.
 
@@ -90,6 +91,7 @@ WORKDIR /home/openmobilemaps
 ADD ./AvertaStd-Bold.ttf AvertaStd-Bold.ttf 
 ADD ./bottomstuff.jpeg bottomstuff.jpeg
 ADD ./train.png train.png
+ADD ./assets assets
 RUN mkdir output
 
 ENTRYPOINT [ "./entrypoint.sh"]
