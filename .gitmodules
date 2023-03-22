@@ -1,0 +1,3 @@
+[submodule "maps-core"]
+	path = maps-core
+	url = https://github.com/ubamrein/maps-core.git
