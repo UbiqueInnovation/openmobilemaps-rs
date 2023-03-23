@@ -5,7 +5,7 @@ use image::{ImageFormat, Rgba, RgbaImage};
 use imageproc::drawing::{
     draw_filled_circle_mut, draw_filled_rect_mut, draw_polygon_mut, draw_text_mut, text_size,
 };
-use resvg::{tiny_skia, usvg};
+use resvg::{tiny_skia::{self, PremultipliedColorU8}, usvg};
 use rusttype::{Font, Scale};
 use serde::Deserialize;
 use surfman::{
@@ -290,7 +290,7 @@ pub fn draw_map(
             .and_then(|a| a.route.as_ref())
             .map(|a| a.icon)
             .unwrap_or(1),
-        ConnectionType::Workspace(_) => 1,
+        ConnectionType::Workspace(_) => 99,
     };
     let Ok((icon_width, icon_height, texture_data)) = get_destination_box(
         &destination.2,
@@ -990,6 +990,7 @@ fn load_icon(icon: u8) -> anyhow::Result<Vec<u8>> {
         3 => include_str!("../assets/ic_schiff.svg"),
         4 => include_str!("../assets/ic_seilbahn.svg"),
         6 => include_str!("../assets/ic_standseilbahn.svg"),
+        99 => include_str!("../assets/marker.svg"),
         _ => include_str!("../assets/ic_train.svg"),
     };
     let opt = usvg::Options::default();
@@ -1000,6 +1001,10 @@ fn load_icon(icon: u8) -> anyhow::Result<Vec<u8>> {
     let Some(mut pixmap) = tiny_skia::Pixmap::new(48, 48) else {
         bail!("Could not init pixmap for svg")
     };
+    pixmap.pixels_mut().iter_mut().for_each(|p| {
+        let [r,g,b,a] = html_hex!("#404889");
+        *p = PremultipliedColorU8::from_rgba(r,g,b,a).unwrap();
+    });
     if resvg::render(
         &tree,
         usvg::FitTo::Size(48, 48),
