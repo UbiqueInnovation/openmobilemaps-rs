@@ -609,6 +609,12 @@ pub fn new_poly_line(
 
 pub struct ZoomInfo;
 
+impl Drop for ZoomInfo {
+    fn drop(&mut self) {
+        log::debug!("Drop zoominfo (rustbox)");
+    }
+}
+
 impl Tiled2dMapLayerConfigTrait for ZoomInfo {
     fn getCoordinateSystemIdentifier(&self) -> UniquePtr<cxx::CxxString> {
         CoordinateSystemIdentifiers::EPSG3857()

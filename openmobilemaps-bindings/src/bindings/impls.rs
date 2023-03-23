@@ -116,7 +116,7 @@ pub struct TextureHolderInterfaceImpl {
     texture_data: Vec<u8>,
     usage_counter: usize,
     id: u32,
-    attached: bool
+    attached: bool,
 }
 
 impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
@@ -189,6 +189,11 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
 }
 
 pub struct DefaultLoaderInterface;
+impl Drop for DefaultLoaderInterface {
+    fn drop(&mut self) {
+        log::debug!("Drop default loader interface");
+    }
+}
 impl LoaderInterfaceTrait for DefaultLoaderInterface {
     fn loadTextureWrapper(
         &self,
