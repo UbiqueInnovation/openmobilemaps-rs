@@ -4,6 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
+use std::str::FromStr;
 use std::sync::mpsc::Sender;
 
 use autocxx::{subclass::*, WithinUniquePtr};
@@ -115,9 +116,7 @@ pub struct TextureHolderInterfaceImpl {
     texture_data: Vec<u8>,
     usage_counter: usize,
     id: u32,
-    attached: bool,
-    texture: Option<glium::texture::SrgbTexture2d>,
-    display: Option<glium::Display>,
+    attached: bool
 }
 
 impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
@@ -196,21 +195,31 @@ impl LoaderInterfaceTrait for DefaultLoaderInterface {
         url: &cxx::CxxString,
         etag: cxx::UniquePtr<cxx::CxxString>,
     ) -> cxx::UniquePtr<TextureLoaderResult> {
-        let Ok(data) = ureq::get(url.to_str().unwrap()).call() else {
-            let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
-            let tex_holder_iface =
-            TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
-            let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
-            return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER);
-        };
+        let u = url::Url::parse(url.to_str().unwrap()).unwrap();
+        let p = u.path();
+        let path = std::path::PathBuf::from_str(&format!("tiles/{p}")).unwrap();
         let mut databytes = vec![];
-        let Ok(_)=  data.into_reader().read_to_end(&mut databytes) else {
+        if !path.exists() {
+            let Ok(data) = ureq::get(url.to_str().unwrap()).call() else {
             let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
             let tex_holder_iface =
             TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
             let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
             return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER);
         };
+
+            let Ok(_)=  data.into_reader().read_to_end(&mut databytes) else {
+            let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
+            let tex_holder_iface =
+            TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
+            let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
+            return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER);
+        };
+
+            std::fs::write(&format!("tiles/{p}"), &databytes);
+        } else {
+            databytes = std::fs::read(path).unwrap();
+        }
         let Ok(image) = image::load_from_memory(&databytes) else {
             let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
             let tex_holder_iface =

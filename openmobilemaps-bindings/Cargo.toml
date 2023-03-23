@@ -8,13 +8,12 @@ autocxx = "0.25.0"
 autocxx-macro = "0.25.0"
 cxx = "1.0"
 gl = "0.14.0"
-glium = "0.32.1"
-glutin = "0.29"
 image = "0.24.5"
 lazy_static = "1.4.0"
 log = "0.4.17"
 tokio = {version = "1.26.0", features = ["full"]}
 ureq = "2.6.2"
+url = "2.3.1"
 
 
 [build-dependencies]

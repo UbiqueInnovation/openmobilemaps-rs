@@ -5,7 +5,10 @@ use image::{ImageFormat, Rgba, RgbaImage};
 use imageproc::drawing::{
     draw_filled_circle_mut, draw_filled_rect_mut, draw_polygon_mut, draw_text_mut, text_size,
 };
-use resvg::{tiny_skia::{self, PremultipliedColorU8}, usvg};
+use resvg::{
+    tiny_skia::{self, PremultipliedColorU8},
+    usvg,
+};
 use rusttype::{Font, Scale};
 use serde::Deserialize;
 use surfman::{
@@ -15,6 +18,8 @@ use surfman::{
 use std::{
     default::Default,
     io::Cursor,
+    path::PathBuf,
+    str::FromStr,
     time::{Duration, Instant},
 };
 
@@ -143,6 +148,7 @@ pub fn draw_map_for(
     index: ConnectionType,
     meetween_slogan: &str,
 ) -> anyhow::Result<Vec<u8>> {
+    let viadi_start = Instant::now();
     let connections_response = match ureq::get(&url).call() {
         Ok(connection_response) => connection_response,
         Err(e) => bail!("{e}"),
@@ -167,6 +173,11 @@ pub fn draw_map_for(
             station.to_owned()
         }
     };
+    let viadi_end = Instant::now();
+    println!(
+        "Viadi request took {}ms",
+        (viadi_end - viadi_start).as_millis()
+    );
     draw_map(&station, index, &meetween_slogan)
 }
 pub fn draw_map(
@@ -188,6 +199,7 @@ pub fn draw_map(
     let Ok((display, mut context)) = setup_opengl() else {
         bail!("Failed to initialize open gl");
     };
+    let gl_end = Instant::now();
 
     log::debug!("Create map");
     let Ok((rx, map_interface, invalidate_receiver, ready_state_interface, ready_state_receiver)) =
@@ -195,11 +207,13 @@ pub fn draw_map(
             display.destroy_context(&mut context);
             bail!("Could not setup map");
         };
+    let map_end = Instant::now();
     log::debug!("Add raster layer");
     let Ok((_loader_interface_ptr, raster_layer)) = create_raster_layer() else {
         display.destroy_context(&mut context);
         bail!("Failed to setup raster layer");
     };
+    let raster_end = Instant::now();
 
     let line_layer = LineLayerInterface::create();
     let icon_layer = IconLayerInterface::create();
@@ -267,9 +281,11 @@ pub fn draw_map(
     }
     use ellipse::Ellipse;
     let destination = match (index, &station.meeting_point, &station.workspace) {
-        (ConnectionType::Connection(_), Some(m), _) => {
-            (m.coordinate.lon, m.coordinate.lat, m.name.as_str().truncate_ellipse(10).to_string())
-        }
+        (ConnectionType::Connection(_), Some(m), _) => (
+            m.coordinate.lon,
+            m.coordinate.lat,
+            m.name.as_str().truncate_ellipse(10).to_string(),
+        ),
         (ConnectionType::Workspace(_), _, Some(m)) => (
             m.location.longitude,
             m.location.latitude,
@@ -316,6 +332,8 @@ pub fn draw_map(
     let the_icon = transform_icon_info_interface(the_icon);
     pin_mut!(icon_layer).add(&the_icon);
 
+    let icon_end = Instant::now();
+
     pin_mut!(map_interface).addLayer(&raster_layer);
 
     let line_layer = pin_mut!(line_layer).asLayerInterface();
@@ -355,6 +373,7 @@ pub fn draw_map(
 
     let map_interface2 = map_interface.clone();
     let bounds = pin_mut!(b).asRectCoord().within_unique_ptr();
+    let before_render = Instant::now();
     std::thread::spawn(move || {
         let map_interface = map_interface2;
         pin_mut!(map_interface).drawReadyFrame(&bounds, 10.0, &ready_state_interface);
@@ -363,23 +382,25 @@ pub fn draw_map(
 
     log::debug!("Start rendering loop");
     let mut buffer = vec![0u8; 1200 * 630 * 4];
-    let mut render_passes = 1;
-    display.make_context_current(&context);
+
+    let _ = display.make_context_current(&context);
     loop {
-        if let Ok(task) = rx.recv_timeout(Duration::from_millis(1)) {
+        pin_mut!(map_interface).drawFrame();
+        while let Ok(task) = rx.try_recv() {
             run_task(task);
         }
-        if invalidate_receiver
-            .recv_timeout(Duration::from_millis(1))
-            .is_ok()
-        {
+        if invalidate_receiver.try_recv().is_ok() {
             pin_mut!(map_interface).invalidate();
+            pin_mut!(map_interface).drawFrame();
         }
 
-        pin_mut!(map_interface).drawFrame();
-
-        if let Ok(state) = ready_state_receiver.recv_timeout(Duration::from_millis(1)) {
+        if let Ok(state) = ready_state_receiver.try_recv() {
             if state == LayerReadyState::READY {
+                pin_mut!(map_interface).drawFrame();
+                while let Ok(task) = rx.recv_timeout(Duration::from_millis(5)) {
+                    run_task(task);
+                }
+
                 unsafe {
                     gl::Finish();
                 };
@@ -398,10 +419,11 @@ pub fn draw_map(
                 break;
             }
         }
-    }
-    log::debug!("finishing frame (after {render_passes} render passes)");
-    display.destroy_context(&mut context);
 
+        unsafe { gl::Flush() };
+    }
+    let after_render_read_pixel = Instant::now();
+    display.destroy_context(&mut context);
     let Some(image) = image::ImageBuffer::from_raw(1200, 630, buffer)else {
         bail!("Could not initialize new image");
     };
@@ -451,7 +473,20 @@ pub fn draw_map(
     }
 
     let end = Instant::now();
-    log::debug!("Took {}ms", (end - start).as_millis());
+
+    println!("GL Setup took {}ms", (gl_end - start).as_millis());
+    println!("Map setup took {}ms", (map_end - gl_end).as_millis());
+    println!("Raster layer took {}ms", (raster_end - map_end).as_millis());
+    println!("Icon layer took {}ms", (icon_end - raster_end).as_millis());
+    println!(
+        "Rendering took {}ms",
+        (after_render_read_pixel - before_render).as_millis()
+    );
+    println!(
+        "Finishing image took {}ms",
+        (end - after_render_read_pixel).as_millis()
+    );
+
     Ok(output_buffer.into_inner())
 }
 
@@ -581,6 +616,10 @@ impl Tiled2dMapLayerConfigTrait for ZoomInfo {
 
     fn getTileUrl(&self, x: i32, y: i32, t: i32, zoom: i32) -> UniquePtr<cxx::CxxString> {
         log::debug!("getTIle url");
+        let p = PathBuf::from_str(&format!("tiles/{zoom}/{x}")).unwrap();
+        if !p.exists() {
+            std::fs::create_dir_all(p).unwrap();
+        }
         let the_url = format!("https://osm-tile-flesk.openmobilemaps.io/{zoom}/{x}/{y}.png");
         log::debug!("{the_url}");
         make_string(&the_url)
@@ -1002,8 +1041,8 @@ fn load_icon(icon: u8) -> anyhow::Result<Vec<u8>> {
         bail!("Could not init pixmap for svg")
     };
     pixmap.pixels_mut().iter_mut().for_each(|p| {
-        let [r,g,b,a] = html_hex!("#404889");
-        *p = PremultipliedColorU8::from_rgba(r,g,b,a).unwrap();
+        let [r, g, b, a] = html_hex!("#404889");
+        *p = PremultipliedColorU8::from_rgba(r, g, b, a).unwrap();
     });
     if resvg::render(
         &tree,

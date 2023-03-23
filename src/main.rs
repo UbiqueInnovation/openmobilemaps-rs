@@ -20,7 +20,7 @@ fn main() {
 
     std::fs::write("tmp_connection.json", &connections);
     let meetween_connections: MeetweenConnections = serde_json::from_str(&connections).unwrap();
-
+    let viadi_end = Instant::now();
     let olten = draw_map(
         &meetween_connections.workspaces[0],
         ConnectionType::Workspace(0),
@@ -28,13 +28,16 @@ fn main() {
     )
     .unwrap_or_default();
     let destination = meetween_connections.workspaces[0]
-        .workspace.as_ref()
+        .workspace
+        .as_ref()
         .unwrap()
         .city
         .clone();
     std::fs::write(format!("{destination}.png"), olten);
-
     let end = Instant::now();
+
+    println!("Viadi took {}ms", (viadi_end - start).as_millis());
+    println!("Render took {}ms", (end - viadi_end).as_millis());
     println!("Everything took {}ms", (end - start).as_millis());
     println!("Saved image to {destination}.png");
 }
