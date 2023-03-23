@@ -1,6 +1,7 @@
+use anyhow::bail;
 use euclid::Size2D;
 use geo_types::LineString;
-use image::{GenericImageView, ImageFormat, Rgba, RgbaImage};
+use image::{ImageFormat, Rgba, RgbaImage};
 use imageproc::drawing::{
     draw_filled_circle_mut, draw_filled_rect_mut, draw_polygon_mut, draw_text_mut, text_size,
 };
@@ -104,12 +105,20 @@ pub struct Coordinate {
 #[derive(Deserialize)]
 pub struct Workspace {}
 
-pub fn draw_map_for(url: &str, index: usize, meetween_slogan: &str) -> Vec<u8> {
-    let connections = ureq::get(&url).call().unwrap().into_string().unwrap();
-    let meetween_connections: MeetweenConnections = serde_json::from_str(&connections).unwrap();
+pub fn draw_map_for(url: &str, index: usize, meetween_slogan: &str) -> anyhow::Result<Vec<u8>> {
+    let connections_response = match ureq::get(&url).call() {
+        Ok(connection_response) => connection_response,
+        Err(e) => bail!("{e}"),
+    };
+    let Ok(connections) = connections_response.into_string() else {
+        bail!("Could not get body as string")
+    };
+    let Ok(meetween_connections) = serde_json::from_str::<MeetweenConnections>(&connections) else {
+        bail!("Failed to deserialize model");
+    };
     draw_map(&meetween_connections.stations[index], &meetween_slogan)
 }
-pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
+pub fn draw_map(station: &Station, meetween_slogan: &str) -> anyhow::Result<Vec<u8>> {
     let colors_array: [[[u8; 4]; 2]; 6] = [
         [html_hex!("#FF5157"), html_hex!("#FFF")],
         [html_hex!("#6474A6"), html_hex!("#FFF")],
@@ -120,14 +129,22 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
     ];
 
     let start = Instant::now();
-    println!("Setup opengl");
-    let (display, mut context) = setup_opengl();
+    log::debug!("Setup opengl");
+    let Ok((display, mut context)) = setup_opengl() else {
+        bail!("Failed to initialize open gl");
+    };
 
-    println!("Create map");
-    let (rx, map_interface, invalidate_receiver, ready_state_interface, ready_state_receiver) =
-        setup_map();
-    println!("Add raster layer");
-    let (_loader_interface_ptr, raster_layer) = create_raster_layer();
+    log::debug!("Create map");
+    let Ok((rx, map_interface, invalidate_receiver, ready_state_interface, ready_state_receiver)) =
+        setup_map() else {
+            display.destroy_context(&mut context);
+            bail!("Could not setup map");
+        };
+    log::debug!("Add raster layer");
+    let Ok((_loader_interface_ptr, raster_layer)) = create_raster_layer() else {
+        display.destroy_context(&mut context);
+        bail!("Failed to setup raster layer");
+    };
 
     let line_layer = LineLayerInterface::create();
     let icon_layer = IconLayerInterface::create();
@@ -157,13 +174,20 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
             .collect::<Vec<_>>();
         let mut color_outer = color;
         color_outer[3] = 100;
-        let (points, connection_interface) = new_poly_line(&poly_line, &connection_color);
+        let Ok((points, connection_interface)) = new_poly_line(&poly_line, &connection_color) else {
+            log::error!("Polyline setup failed");
+            continue;
+        };
         pin_mut!(line_layer).add(&connection_interface);
         all_points.extend(&points);
 
         let mut the_icon = IconInfoInterfaceImpl::default();
-        the_icon.texture_data =
-            get_start_point(&(i + 1).to_string(), font_color, color_outer, color, 80, 80);
+        let Ok(start_point_data) =  get_start_point(&(i + 1).to_string(), font_color, color_outer, color, 80, 80) else {
+            log::error!("Startpoint setup failed");
+            continue;
+        };
+        the_icon.texture_data = start_point_data;
+
         the_icon.image_width = 80;
         the_icon.image_height = 80;
         the_icon.anchor = (0.5, 0.5);
@@ -186,7 +210,7 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
         station.meeting_point.name.clone(),
     );
     let mut the_icon = IconInfoInterfaceImpl::default();
-    let (icon_width, icon_height, texture_data) = get_destination_box(
+    let Ok((icon_width, icon_height, texture_data)) = get_destination_box(
         &destination.2,
         station
             .connections
@@ -196,7 +220,10 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
             .and_then(|a| a.route.as_ref())
             .map(|a| a.icon)
             .unwrap_or(1),
-    );
+    ) else {
+        display.destroy_context(&mut context);
+        bail!("Could not place destination_box");
+    };
     the_icon.texture_data = texture_data;
     the_icon.image_width = icon_width as usize;
     the_icon.image_height = icon_height as usize;
@@ -222,7 +249,7 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
     let icon_layer = pin_mut!(icon_layer).asLayerInterface();
     pin_mut!(map_interface).addLayer(&icon_layer);
 
-    println!("Setup camera");
+    log::debug!("Setup camera");
     let camera = pin_mut!(map_interface).getCamera();
     pin_mut!(camera).setMaxZoom(0.0);
     pin_mut!(camera).setMinZoom(f64::MAX);
@@ -259,7 +286,7 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
     });
     //
 
-    println!("Start rendering loop");
+    log::debug!("Start rendering loop");
     let mut buffer = vec![0u8; 1200 * 630 * 4];
     let mut render_passes = 1;
     display.make_context_current(&context);
@@ -297,21 +324,21 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
             }
         }
     }
-    println!("finishing frame (after {render_passes} render passes)");
+    log::debug!("finishing frame (after {render_passes} render passes)");
     display.destroy_context(&mut context);
 
-    let image = image::ImageBuffer::from_raw(1200, 630, buffer).unwrap();
+    let Some(image) = image::ImageBuffer::from_raw(1200, 630, buffer)else {
+        bail!("Could not initialize new image");
+    };
 
     let image = image::DynamicImage::ImageRgba8(image).flipv();
     let mut image = image.resize_exact(1200, 630, image::imageops::FilterType::Lanczos3);
 
-    // let bottomstuff = image::open("./bottomstuff.jpeg").unwrap();
-    // let bottomstuff = bottomstuff.resize_exact(1200, 78, image::imageops::FilterType::Lanczos3);
-    // let bottomsheet = image.dimensions().1 as i64 - 78;
-    // image::imageops::replace(&mut image, &bottomstuff, 0, bottomsheet);
     let background_color = Rgba([64_u8, 72_u8, 137_u8, 250_u8]);
     let font = Vec::from(include_bytes!("../AvertaStd-BoldItalic.ttf") as &[u8]);
-    let font = Font::try_from_vec(font).unwrap();
+    let Some(font) = Font::try_from_vec(font) else {
+        bail!("Invalid font");
+    };
     draw_filled_rect_mut(
         &mut image,
         imageproc::rect::Rect::at(0, 630 - 78).of_size(1200, 78),
@@ -332,34 +359,53 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> Vec<u8> {
         &font,
         meetween_slogan,
     );
-
-    let meetween_logo = RgbaImage::from_raw(300, 44, load_meetween()).unwrap();
+    let Ok(meetween_data) = load_meetween() else {
+        bail!("Could not load meetween data");
+    };
+    let Some(meetween_logo) = RgbaImage::from_raw(300, 44, meetween_data) else {
+        bail!("Failed to rasterize meetween logo");
+    };
     image::imageops::replace(&mut image, &meetween_logo, 1200 - 300 - 40, 630 - 39 - 22);
 
     let mut output_buffer = Cursor::new(Vec::with_capacity(1200 * 630));
-    image.write_to(&mut output_buffer, ImageFormat::Jpeg);
+    if image
+        .write_to(&mut output_buffer, ImageFormat::Jpeg)
+        .is_err()
+    {
+        bail!("Could not write to output image");
+    }
 
     let end = Instant::now();
-    println!("Took {}ms", (end - start).as_millis());
-    output_buffer.into_inner()
+    log::debug!("Took {}ms", (end - start).as_millis());
+    Ok(output_buffer.into_inner())
 }
 
-pub fn setup_opengl() -> (surfman::Device, surfman::Context) {
-    let connection = Connection::new().unwrap();
-    let adapter = connection.create_adapter().unwrap();
-    let mut device = connection.create_device(&adapter).unwrap();
+pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
+    let Ok(connection) = Connection::new() else  {
+        bail!("Failed to setup connection to display");
+    };
+    let Ok(adapter) = connection.create_adapter() else {
+        bail!("Failed to find suitable adapter");
+    };
+    let Ok(mut device) = connection.create_device(&adapter) else {
+        bail!("Failed to create device");
+    };
     let context_attributes = ContextAttributes {
         version: GLVersion::new(4, 3),
         flags: ContextAttributeFlags::ALPHA
             | ContextAttributeFlags::STENCIL
             | ContextAttributeFlags::DEPTH,
     };
-    let context_descriptor = device
+    let Ok(context_descriptor) = device
         .create_context_descriptor(&context_attributes)
-        .unwrap();
-    let mut context = device.create_context(&context_descriptor, None).unwrap();
+        else {
+            bail!("Failed to create context descriptor");
+        };
+    let Ok(mut context) = device.create_context(&context_descriptor, None) else {
+        bail!("Failed to create context");
+    };
 
-    let surface = device
+    let Ok(surface) = device
         .create_surface(
             &context,
             SurfaceAccess::GPUOnly,
@@ -367,37 +413,57 @@ pub fn setup_opengl() -> (surfman::Device, surfman::Context) {
                 size: Size2D::new(1200, 630),
             },
         )
-        .unwrap();
-    device
+        else {
+            device.destroy_context(&mut context);
+            bail!("Failed to create drawing surface");
+        };
+    if device
         .bind_surface_to_context(&mut context, surface)
-        .unwrap();
+        .is_err()
+    {
+        device.destroy_context(&mut context);
+        bail!("Could not bind surface to context");
+    }
 
-    device.make_context_current(&context).unwrap();
-
+    if device.make_context_current(&context).is_err() {
+        device.destroy_context(&mut context);
+        bail!("Could not make context current");
+    }
+    log::debug!("Load GL pointers");
     gl::load_with(|s| device.get_proc_address(&context, s) as *const std::os::raw::c_void);
 
     let mut arrays = 0;
+    log::debug!("Setup VBO");
     unsafe { gl::GenVertexArrays(1, &mut arrays) };
     unsafe { gl::BindVertexArray(arrays) };
 
+    log::debug!("Clear flags");
     unsafe {
         gl::Disable(gl::CULL_FACE);
         gl::Disable(gl::DEPTH_TEST);
         gl::Disable(gl::BLEND);
         // gl::Enable(gl::MULTISAMPLE);
-        let surface_info = device.context_surface_info(&context).unwrap().unwrap();
+        log::debug!("Bind framebuffer");
+        let Ok(Some(surface_info)) = device.context_surface_info(&context) else {
+            device.destroy_context(&mut context);
+            bail!("Failed to get surface info");
+        };
         gl::BindFramebuffer(gl::FRAMEBUFFER, surface_info.framebuffer_object);
+        log::debug!("Set viewport");
         gl::Viewport(0, 0, 1200, 630);
     }
-    // glium::HeadlessRenderer::new(context).unwrap()
-    (device, context)
+
+    Ok((device, context))
 }
 
 pub fn new_poly_line(
     polylines: &[LineString],
     color: &Color,
-) -> (Vec<(f64, f64)>, SharedPtr<LineInfoInterface>) {
+) -> anyhow::Result<(Vec<(f64, f64)>, SharedPtr<LineInfoInterface>)> {
     let line_layer_info_interface = LineInfoInterfaceWrapperBuilder::new().within_unique_ptr();
+    if line_layer_info_interface.is_null() {
+        bail!("LineInfoInterface is null");
+    }
     let mut coords = vec![];
     for line in polylines {
         for coord in line.points() {
@@ -427,21 +493,21 @@ pub fn new_poly_line(
     .within_unique_ptr();
     pin_mut!(line_layer_info_interface).setStyle(line_style);
     pin_mut!(line_layer_info_interface).setIdentifier("connection_a");
-    println!("Build line_layer");
-    (coords, pin_mut!(line_layer_info_interface).build())
+    log::debug!("Build line_layer");
+    Ok((coords, pin_mut!(line_layer_info_interface).build()))
 }
 
 pub struct ZoomInfo;
 
 impl Tiled2dMapLayerConfigTrait for ZoomInfo {
     fn getCoordinateSystemIdentifier(&self) -> UniquePtr<cxx::CxxString> {
-        todo!()
+        CoordinateSystemIdentifiers::EPSG3857()
     }
 
     fn getTileUrl(&self, x: i32, y: i32, t: i32, zoom: i32) -> UniquePtr<cxx::CxxString> {
-        // println!("getTIle url");
+        log::debug!("getTIle url");
         let the_url = format!("https://osm-tile-flesk.openmobilemaps.io/{zoom}/{x}/{y}.png");
-        // println!("{the_url}");
+        log::debug!("{the_url}");
         make_string(&the_url)
     }
 
@@ -686,15 +752,22 @@ impl Tiled2dMapLayerConfigTrait for ZoomInfo {
     }
 }
 
-pub fn create_raster_layer() -> (SharedPtr<LoaderInterfaceImpl>, SharedPtr<LayerInterface>) {
+pub fn create_raster_layer(
+) -> anyhow::Result<(SharedPtr<LoaderInterfaceImpl>, SharedPtr<LayerInterface>)> {
     let mut builder = Tiled2dMapRasterLayerInterfaceBuilder::builder().within_unique_ptr();
 
+    if builder.is_null() {
+        bail!("Failed to initialize raster layer builder");
+    }
     let config_wrapper = unsafe {
         let wrapper = Tiled2dMapLayerConfigWrapperImpl(Box::new(ZoomInfo));
         let pointer = Box::into_raw(Box::new(wrapper));
         Tiled2dMapLayerConfigWrapper::new1(pointer as _).within_unique_ptr()
     };
-    // builder.pin_mut().addConfig();
+
+    if config_wrapper.is_null() {
+        bail!("Failed to setup config wrapper");
+    }
 
     let config = Tiled2dMapLayerConfigWrapper::asTiled2dMapLayerConfig(config_wrapper);
 
@@ -704,25 +777,30 @@ pub fn create_raster_layer() -> (SharedPtr<LoaderInterfaceImpl>, SharedPtr<Layer
     let pointer = Box::into_raw(Box::new(loader));
     let loader = unsafe { LoaderInterfaceImpl::new1(pointer as _).within_unique_ptr() };
 
+    if loader.is_null() {
+        bail!("Failed to initialize loader");
+    }
     let loader = LoaderInterfaceImpl::toShared(loader);
 
     let loader_shared = LoaderInterfaceImpl::asLoaderInterface(loader.clone());
     builder.pin_mut().addLoader(loader_shared);
 
     let tiled = builder.pin_mut().build();
-    (loader, down_cast_to_layer_interface(tiled))
+    Ok((loader, down_cast_to_layer_interface(tiled)))
 }
 
-pub fn setup_map() -> (
+pub fn setup_map() -> anyhow::Result<(
     std::sync::mpsc::Receiver<SharedPtr<TaskInterface>>,
     SharedPtr<MapInterface>,
     std::sync::mpsc::Receiver<()>,
     UniquePtr<MapReadyCallbackInterface>,
     std::sync::mpsc::Receiver<LayerReadyState>,
-) {
+)> {
     let coordsystem = CoordinateSystemFactory::getEpsg3857System();
     let map_config = MapConfig::new(coordsystem.within_unique_ptr()).within_unique_ptr();
-
+    if map_config.is_null() {
+        bail!("Could not create map config");
+    }
     let (tx, rx) = std::sync::mpsc::channel();
     SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
         .lock()
@@ -730,15 +808,23 @@ pub fn setup_map() -> (
         .0 = Some(tx);
 
     let scheduler = SchedulerInterfaceStaticWrapper::new().within_unique_ptr();
+    if scheduler.is_null() {
+        bail!("Could not initialize schedulerinterface");
+    }
     let scheduler = transform_unique(scheduler);
-    // println!("{}", shared_ptr.is_null());
     let map_interface: SharedPtr<MapInterface> =
         MapInterface::createWithOpenGl(&map_config, &scheduler, 1.0);
+    if map_interface.is_null() {
+        bail!("Could not create map interface");
+    }
     let (invalidate_sender, invalidate_receiver) = std::sync::mpsc::channel();
 
     let mut callbacks = MapCallbackInterfaceImpl::default();
     callbacks.sender = Some(invalidate_sender);
     let callbacks = MapCallbackInterfaceImpl::new_cpp_owned(callbacks);
+    if callbacks.is_null() {
+        bail!("Could not initialize map callbacks");
+    }
     let callback_interface =
         MapCallbackInterfaceImpl::as_MapCallbackInterface_unique_ptr(callbacks);
 
@@ -746,23 +832,28 @@ pub fn setup_map() -> (
         callback_interface,
     ));
     let (ready_state_sender, ready_state_receiver) = std::sync::mpsc::channel();
-    let mut guard = MAP_READY_CALLBACK.lock().unwrap();
+    let Ok(mut guard) = MAP_READY_CALLBACK.lock() else {
+        bail!("Failed to acquire lock for map callbacks");
+    };
     *guard = Some(ready_state_sender);
     let mut ready_state = MapReadyCallbackInterfaceImpl::default();
     // ready_state.sender = Some(ready_state_sender);
 
     let ready_state = MapReadyCallbackInterfaceImpl::new_cpp_owned(ready_state);
+    if ready_state.is_null() {
+        bail!("Callback interface was unexpectedly null");
+    }
     let ready_state_interface =
         MapReadyCallbackInterfaceImpl::as_MapReadyCallbackInterface_unique_ptr(ready_state);
 
     pin_mut!(map_interface).setViewportSize(&Vec2I::new(1200, 630).within_unique_ptr());
-    (
+    Ok((
         rx,
         map_interface,
         invalidate_receiver,
         ready_state_interface,
         ready_state_receiver,
-    )
+    ))
 }
 
 #[cfg(test)]
@@ -771,7 +862,6 @@ mod tests {
     fn test_polyline() {
         let poly_line = "eqeaHqiim@vBcJrBwIXkA\\uA^cBJo@Jm@d@qBR{@Hc@Le@n@{BLm@VsAXeBPiAPoANaBFqB@cBEeBMkBK_AMcAQw@o@eCk@qBEO_@oAWeAUcAWyAMs@c@}CMsAImAGmAGcDAuDBcBDaCD}@HyADu@Hu@RcBb@wCj@yCv@gDzCgKlAcEbBsGXkArBeJfAqEpAuFVmAZgB|@{Fb@cC\\_BNo@xAmGdFiTdAiEtAsFhEqQzDmQhByHPu@jAgFvBeJhByHvCcMf@wBhE{QDO|C{Mn@oCr@iDr@eDxAuFPq@n@qBp@qBt@sBx@qB|@oBz@}An@gAZi@`BaCbByB`BaB`B_BzAqA|AeAxAaAfFsDdFiEdMsMnEqGlEqHpFaLlFwLxS{d@``AuuBvH{RpKkYhNi_@lE}JtEiJnG{KrHkLb@m@bDiErA_BnAaBZa@pBiCdByB|@mA~AeCbBoCz@sAhAiBlAqBv@sAhBaDfB_D??xB_ExAkCj@_AbAgBf@aAZi@r@oAp@kAh@cAnByDtA}CvEuLfIuTp@gBtBaGz@aC|@}BhUon@fJoWlAaEd@cB^aBj@yCXqBLoAN_BJ_BJmCBsB?wACyEAc@@{D?sELuDf@_Kr@kKZ_EPwBZwE`GiaAf@sIvAqUvGecAf@qHl@mH~@mFpAoElB_GfAuDd@yBDSn@qDn@yDhF_]r@yF~@eIBS|BmT`@aENcE?_CGiCMyBCYCO]aCMs@WgAQm@[iAUm@a@}@[m@[g@i@{@e@m@q@{@sEyEaC{DmA{Cw@mDYkBEYMuAKkAIaC?mBJiFJ_DHyE?kBGoBSaEOaAWwBK_Ae@yDo@cF}AiMuAiLKw@g@sDOqAS_Ba@iDUmCO_EBeETyDd@iDj@iCRu@b@qA^w@d@_A`AaBV_@^c@hAgAj@c@`Aw@jHoF~BiBtBsBpBgCjBuCrCiGpAwDjAeF`DkR`@gB\\qA^oAv@cCl@uAzA_D~@yA`GiGzR{QX[zByBhAwA`@k@d@o@hBsDl@sAjAgC^_AtAkDjB}D~BaDlBoBdGmFzIkIvBeB`CmArAe@bBi@r@U|Bu@jr@sRjrEalAfoAw\\fuAi\\~IuB`FsAhKmCzHqBxCw@n@Qx@SdB]jAK|@Az@Bz@DpBb@lA^|Ap@`B~@~AnAz@v@v@z@v@~@r@dAp@hAj@fAvA|C`E|JBHTl@j@bB`@bAbAdCr@pAf@v@l@t@l@n@jA|@TNZNXNZLd@Tb@Px@RdAVoB[g@O[C[EZNbAf@dAPn@NlATt@JjEb@??";
         let coords = polyline::decode_polyline(poly_line, 5).unwrap();
-        println!("{:?}", coords);
     }
 }
 
@@ -782,7 +872,7 @@ pub fn get_start_point(
     color_inner: [u8; 4],
     output_width: usize,
     output_height: usize,
-) -> Vec<u8> {
+) -> anyhow::Result<Vec<u8>> {
     let mut image = RgbaImage::new(800, 800);
 
     draw_filled_circle_mut(&mut image, (400, 400), 400, Rgba(color_outer));
@@ -790,7 +880,9 @@ pub fn get_start_point(
     draw_filled_circle_mut(&mut image, (400, 400), 250, Rgba(color_inner));
 
     let font = Vec::from(include_bytes!("../AvertaStd-Bold.ttf") as &[u8]);
-    let font = Font::try_from_vec(font).unwrap();
+    let Some(font) = Font::try_from_vec(font) else {
+        bail!("Failed to load font");
+    };
     let height = 400;
     let scale = Scale {
         x: height as f32,
@@ -798,7 +890,6 @@ pub fn get_start_point(
     };
 
     let (text_width, text_height) = text_size(scale, &font, number);
-    println!("{}/{}", text_width, text_height);
     draw_text_mut(
         &mut image,
         Rgba(color_text),
@@ -814,10 +905,10 @@ pub fn get_start_point(
         output_height as u32,
         image::imageops::FilterType::CatmullRom,
     );
-    image.into_vec()
+    Ok(image.into_vec())
 }
 
-fn load_icon(icon: u8) -> Vec<u8> {
+fn load_icon(icon: u8) -> anyhow::Result<Vec<u8>> {
     let svg_data = match icon {
         1 => include_str!("../assets/ic_train.svg"),
         2 => include_str!("../assets/ic_bus.svg"),
@@ -827,44 +918,65 @@ fn load_icon(icon: u8) -> Vec<u8> {
         _ => include_str!("../assets/ic_train.svg"),
     };
     let opt = usvg::Options::default();
-    let tree = usvg::Tree::from_str(svg_data, &opt).unwrap();
+    let Ok(tree) = usvg::Tree::from_str(svg_data, &opt) else {
+        bail!("Failed to parse svg");
+    };
 
-    let mut pixmap = tiny_skia::Pixmap::new(48, 48).unwrap();
-    resvg::render(
+    let Some(mut pixmap) = tiny_skia::Pixmap::new(48, 48) else {
+        bail!("Could not init pixmap for svg")
+    };
+    if resvg::render(
         &tree,
         usvg::FitTo::Size(48, 48),
         tiny_skia::Transform::default(),
         pixmap.as_mut(),
     )
-    .unwrap();
-    pixmap.data_mut().to_vec()
+    .is_none()
+    {
+        bail!("Failed to render svg");
+    }
+    Ok(pixmap.data_mut().to_vec())
 }
 
-fn load_meetween() -> Vec<u8> {
+fn load_meetween() -> anyhow::Result<Vec<u8>> {
     let svg_data = include_str!("../assets/meetween.svg");
     let opt = usvg::Options::default();
-    let tree = usvg::Tree::from_str(svg_data, &opt).unwrap();
-    let mut pixmap = tiny_skia::Pixmap::new(300, 44).unwrap();
-    resvg::render(
+    let Ok(tree) = usvg::Tree::from_str(svg_data, &opt) else {
+          bail!("Failed to parse svg");
+    };
+    let Some(mut pixmap) = tiny_skia::Pixmap::new(300, 44)else {
+        bail!("Could not init pixmap for svg")
+    };
+    if resvg::render(
         &tree,
         usvg::FitTo::Height(44),
         tiny_skia::Transform::default(),
         pixmap.as_mut(),
     )
-    .unwrap();
-    pixmap.data_mut().to_vec()
+    .is_none()
+    {
+        bail!("Failed to render svg");
+    }
+    Ok(pixmap.data_mut().to_vec())
 }
 
-pub fn get_destination_box(destination: &str, icon: u8) -> (i32, i32, Vec<u8>) {
+pub fn get_destination_box(destination: &str, icon: u8) -> anyhow::Result<(i32, i32, Vec<u8>)> {
     let font = Vec::from(include_bytes!("../AvertaStd-Bold.ttf") as &[u8]);
-    let font = Font::try_from_vec(font).unwrap();
+    let Some(font) = Font::try_from_vec(font) else {
+        bail!("Faield to load font");
+    };
     let height = 40;
     let scale = Scale {
         x: height as f32,
         y: height as f32,
     };
 
-    let train_picture = RgbaImage::from_raw(48, 48, load_icon(icon)).unwrap();
+    let Ok(train_icon) = load_icon(icon) else {
+        bail!("Failed to load svg");
+    };
+    let Some(train_picture) = RgbaImage::from_raw(48, 48, train_icon) else {
+        bail!("decoding rgba image failed");
+    };
     let (text_width, text_height) = text_size(scale, &font, destination);
     let background_color = Rgba([64_u8, 72_u8, 137_u8, 250_u8]);
     let image_width = text_width + 20 + 50;
@@ -999,7 +1111,7 @@ pub fn get_destination_box(destination: &str, icon: u8) -> (i32, i32, Vec<u8>) {
     );
 
     image::imageops::replace(&mut image, &train_picture, 10, 10);
-    (image_width, image_height, image.into_vec())
+    Ok((image_width, image_height, image.into_vec()))
 }
 
 #[cfg(test)]
@@ -1010,7 +1122,7 @@ mod lib_test {
 
     #[test]
     fn test_icon() {
-        let icon = load_icon(1);
+        let icon = load_icon(1).unwrap();
         let img = RgbaImage::from_raw(48, 48, icon).unwrap();
         img.save("ic_train.png");
     }

@@ -1,15 +1,15 @@
 // Copyright (c) 2023 Ubique Innovation AG <https://www.ubique.ch>
-// 
+//
 // This Source Code Form is subject to the terms of the Mozilla Public
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
 use std::pin::Pin;
 
-use autocxx::cxx::private::{UniquePtrTarget, SharedPtrTarget};
+use autocxx::cxx::private::{SharedPtrTarget, UniquePtrTarget};
 
-pub mod impls;
 pub mod external_types;
+pub mod impls;
 
 pub unsafe fn cxx_const_cast<T: UniquePtrTarget>(value: &T) -> Pin<&mut T> {
     #![inline]

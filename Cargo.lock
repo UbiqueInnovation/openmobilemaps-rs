@@ -78,6 +78,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc7eb209b1518d6bb87b283c20095f5228ecda460da70b44f0802523dea6da04"
 
 [[package]]
+name = "anyhow"
+version = "1.0.70"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7de8ce5e0f9f8d88245311066a578d72b7af3e7088f32783804676302df237e4"
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1975,12 +1981,14 @@ dependencies = [
 name = "openmobilemaps-rs"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "euclid",
  "geo-types",
  "gl",
  "image",
  "imageproc",
  "lazy_static",
+ "log",
  "openmobilemaps-sys",
  "polyline",
  "resvg",

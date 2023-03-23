@@ -21,7 +21,7 @@ fn main() {
     std::fs::write("tmp_connection.json", &connections);
     let meetween_connections: MeetweenConnections = serde_json::from_str(&connections).unwrap();
 
-    let olten = draw_map(&meetween_connections.stations[0], "Der beste Treffpunkt für alle.");
+    let olten = draw_map(&meetween_connections.stations[0], "Der beste Treffpunkt für alle.").unwrap_or_default();
     let destination = meetween_connections.stations[0].meeting_point.name.clone();
     std::fs::write(format!("{destination}.png"), olten);
 
@@ -35,7 +35,7 @@ mod image_tests {
     use image::RgbaImage;
     use openmobilemaps_rs::{html_hex, MeetweenConnections};
 
-    use crate::{get_destination_box, get_start_point};
+    use openmobilemaps_rs::{get_destination_box, get_start_point};
     #[test]
     fn test_destination_box() {
         let (width, height, image_data) = get_destination_box("Hallo Welt");

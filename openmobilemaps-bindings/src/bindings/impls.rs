@@ -50,7 +50,6 @@ impl IconInfoInterface_methods for IconInfoInterfaceImpl {
     }
 
     fn getTexture(&mut self) -> cxx::SharedPtr<crate::TextureHolderInterface> {
-        // println!("loading texture for icon");
         let mut interface = TextureHolderInterfaceImpl {
             image_width: self.image_width,
             image_height: self.image_height,
@@ -142,8 +141,14 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
         if !self.attached {
             unsafe {
                 let internal_format = gl::RGBA;
-                println!("load texture with gl");
-                println!("datalength: {} {} {} {}", self.texture_data[0],self.texture_data[1],self.texture_data[2],self.texture_data[3] );
+                log::debug!("load texture with gl");
+                log::debug!(
+                    "datalength: {} {} {} {}",
+                    self.texture_data[0],
+                    self.texture_data[1],
+                    self.texture_data[2],
+                    self.texture_data[3]
+                );
                 unsafe {
                     gl::GenTextures(1, &mut self.id);
 
@@ -167,22 +172,6 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
                     // gl::GenerateMipmap(gl::TEXTURE_2D);
                 }
             };
-            // let image = glium::texture::RawImage2d::from_raw_rgba(
-            //     self.texture_data.clone(),
-            //     (self.image_width as u32, self.image_height as u32),
-            // );
-            // let Some(display) = self.display.as_ref() else {
-            //     return 0;
-            // };
-            // let t = glium::texture::SrgbTexture2d::new(display, image).unwrap();
-            // let uniforms = uniform! {
-            //     sampler: t.sampled().wrap_function(SamplerWrapFunction::BorderClamp)
-            // };
-
-            // use glium::GlObject;
-            // self.id = t.get_id();
-            // self.texture = Some(t);
-
             self.attached = true;
         }
         self.usage_counter += 1;
@@ -190,25 +179,15 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
     }
 
     fn clearFromGraphics(&mut self) {
-        // println!("");
-        // println!("Clear texture");
-        // println!("{}", self.texture_data.len());
+        log::debug!("Clear texture");
         if self.usage_counter == 0 {
             self.attached = false;
             unsafe { gl::DeleteTextures(1, &mut self.id) };
-            // println!("Last Usage cleaning up");
         } else {
             self.usage_counter -= 1;
-            // println!("Reducing usage count");
         }
     }
 }
-
-// #[subclass(superclass("LoaderInterfaceImpl"))]
-// #[derive(Default)]
-// pub struct LoaderInterfaceImplRs {
-//     pub display: Option<glium::Display>,
-// }
 
 pub struct DefaultLoaderInterface;
 impl LoaderInterfaceTrait for DefaultLoaderInterface {

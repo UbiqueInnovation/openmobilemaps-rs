@@ -13,7 +13,6 @@ use autocxx_macro::{extern_rust_function};
 
 #[extern_rust_function]
 pub fn log_rs(log_statement: String) {
-    // println!("{log_statement}");
     log::info!("{log_statement}");
 }
 
@@ -165,7 +164,7 @@ pub mod SchedulerInterfaceImplPool {
             .max_blocking_threads(512)
             .thread_keep_alive(std::time::Duration::from_secs(30))
             .build()
-            .unwrap()))
+            .expect("Failed to build internal tasks runtime")))
         };
     }
 }
@@ -224,13 +223,15 @@ impl SchedulerInterfaceRust {
     fn addTaskRust(&self, task: autocxx::cxx::SharedPtr<TaskInterface>) {
         let t = task.clone();
         if !is_graphics(t.clone()) {
-            let spawner = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
-                .lock()
-                .unwrap();
+            let Ok(spawner) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
+                .lock() else {
+                    log::error!("COULD NOT ACCESS SHARED RUNTIME! NO TASKS ARE RUNNING");
+                    return;
+                };
             spawner.1.spawn_blocking(move || {
-                // println!("running: {}", get_id(t.clone()));
+                log::debug!("running: {}", get_id(t.clone()));
                 run_task(t.clone());
-                // println!("finished: {}", get_id(t.clone()));
+                log::debug!("finished: {}", get_id(t.clone()));
             });
         } else if let Ok(sender) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL.lock() {
             if let Some(sender) = sender.0.as_ref() {
@@ -239,16 +240,16 @@ impl SchedulerInterfaceRust {
         }
     }
     fn removeTaskRust(&self, id: String) {
-        println!("removeTask")
+        log::debug!("removeTask")
     }
     fn clearRust(&self) {
-        println!("clear")
+        log::debug!("clear")
     }
     fn pauseRust(&self) {
-        println!("pause")
+        log::debug!("pause")
     }
     fn resumeRust(&self) {
-        println!("resume")
+        log::debug!("resume")
     }
 }
 
