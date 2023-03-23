@@ -61,17 +61,50 @@ macro_rules! html_hex {
     };
 }
 
+#[derive(Clone, Copy)]
+pub enum ConnectionType {
+    Connection(usize),
+    Workspace(usize),
+}
+
+pub enum MeetweenStationType {
+    Connection(Station),
+    Workspace(Workspace),
+}
+
+impl MeetweenStationType {
+    pub fn get_connections(&self) -> &[ViadiConnection] {
+        match self {
+            MeetweenStationType::Connection(c) => &c.connections,
+            MeetweenStationType::Workspace(w) => todo!(),
+        }
+    }
+}
 #[derive(Deserialize)]
 pub struct MeetweenConnections {
     pub stations: Vec<Station>,
-    pub workspaces: Vec<Workspace>,
+    pub workspaces: Vec<Station>,
 }
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Station {
     connections: Vec<ViadiConnection>,
-    pub meeting_point: Place,
+    pub meeting_point: Option<Place>,
+    pub workspace: Option<WorkspacePlace>,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspacePlace {
+    pub title: String,
+    pub city: String,
+    location: WorkspaceCoordinate,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceCoordinate {
+    latitude: f64,
+    longitude: f64,
 }
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -105,7 +138,11 @@ pub struct Coordinate {
 #[derive(Deserialize)]
 pub struct Workspace {}
 
-pub fn draw_map_for(url: &str, index: usize, meetween_slogan: &str) -> anyhow::Result<Vec<u8>> {
+pub fn draw_map_for(
+    url: &str,
+    index: ConnectionType,
+    meetween_slogan: &str,
+) -> anyhow::Result<Vec<u8>> {
     let connections_response = match ureq::get(&url).call() {
         Ok(connection_response) => connection_response,
         Err(e) => bail!("{e}"),
@@ -116,9 +153,27 @@ pub fn draw_map_for(url: &str, index: usize, meetween_slogan: &str) -> anyhow::R
     let Ok(meetween_connections) = serde_json::from_str::<MeetweenConnections>(&connections) else {
         bail!("Failed to deserialize model");
     };
-    draw_map(&meetween_connections.stations[index], &meetween_slogan)
+    let station = match index {
+        ConnectionType::Connection(index) => {
+            let Some(station) = meetween_connections.stations.get(index) else {
+                bail!("invalid index");
+            };
+            station.to_owned()
+        }
+        ConnectionType::Workspace(index) => {
+            let Some(station) = meetween_connections.workspaces.get(index) else {
+                bail!("invalid index");
+            };
+            station.to_owned()
+        }
+    };
+    draw_map(&station, index, &meetween_slogan)
 }
-pub fn draw_map(station: &Station, meetween_slogan: &str) -> anyhow::Result<Vec<u8>> {
+pub fn draw_map(
+    station: &Station,
+    index: ConnectionType,
+    meetween_slogan: &str,
+) -> anyhow::Result<Vec<u8>> {
     let colors_array: [[[u8; 4]; 2]; 6] = [
         [html_hex!("#FF5157"), html_hex!("#FFF")],
         [html_hex!("#6474A6"), html_hex!("#FFF")],
@@ -148,10 +203,16 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> anyhow::Result<Vec<
 
     let line_layer = LineLayerInterface::create();
     let icon_layer = IconLayerInterface::create();
-    let mut all_points = vec![(
-        station.meeting_point.coordinate.lon,
-        station.meeting_point.coordinate.lat,
-    )];
+    let mut all_points = match (index, &station.meeting_point, &station.workspace) {
+        (ConnectionType::Connection(_), Some(m), _) => vec![(m.coordinate.lon, m.coordinate.lat)],
+        (ConnectionType::Workspace(_), _, Some(m)) => {
+            vec![(m.location.longitude, m.location.latitude)]
+        }
+        _ => {
+            display.destroy_context(&mut context);
+            bail!("Something is terribly wrong");
+        }
+    };
 
     for (i, viadi_connection) in station.connections.iter().enumerate() {
         let color = colors_array[i % colors_array.len()][0];
@@ -204,11 +265,18 @@ pub fn draw_map(station: &Station, meetween_slogan: &str) -> anyhow::Result<Vec<
         let the_icon = transform_icon_info_interface(the_icon);
         pin_mut!(icon_layer).add(&the_icon);
     }
-    let destination = (
-        station.meeting_point.coordinate.lon,
-        station.meeting_point.coordinate.lat,
-        station.meeting_point.name.clone(),
-    );
+    let destination = match (index, &station.meeting_point, &station.workspace) {
+        (ConnectionType::Connection(_), Some(m), _) => {
+            (m.coordinate.lon, m.coordinate.lat, m.name.clone())
+        }
+        (ConnectionType::Workspace(_), _, Some(m)) => {
+            (m.location.longitude, m.location.latitude, m.city.clone())
+        }
+        _ => {
+            display.destroy_context(&mut context);
+            bail!("Something is not right")
+        }
+    };
     let mut the_icon = IconInfoInterfaceImpl::default();
     let Ok((icon_width, icon_height, texture_data)) = get_destination_box(
         &destination.2,

@@ -1,6 +1,6 @@
 use std::time::Instant;
 
-use openmobilemaps_rs::{draw_map, MeetweenConnections};
+use openmobilemaps_rs::{draw_map, ConnectionType, MeetweenConnections};
 
 fn main() {
     let start = Instant::now();
@@ -14,15 +14,24 @@ fn main() {
     .unwrap();
 
     let url = format!(
-        "https://app-dev-routing.viadi-zero.ch/v1/meet?{points}&limitStations=3&limitWorkspaces=0"
+        "https://app-dev-routing.viadi-zero.ch/v1/meet?{points}&limitStations=0&limitWorkspaces=1"
     );
     let connections = ureq::get(&url).call().unwrap().into_string().unwrap();
 
     std::fs::write("tmp_connection.json", &connections);
     let meetween_connections: MeetweenConnections = serde_json::from_str(&connections).unwrap();
 
-    let olten = draw_map(&meetween_connections.stations[0], "Der beste Treffpunkt für alle.").unwrap_or_default();
-    let destination = meetween_connections.stations[0].meeting_point.name.clone();
+    let olten = draw_map(
+        &meetween_connections.workspaces[0],
+        ConnectionType::Workspace(0),
+        "Der beste Treffpunkt für alle.",
+    )
+    .unwrap_or_default();
+    let destination = meetween_connections.workspaces[0]
+        .workspace.as_ref()
+        .unwrap()
+        .city
+        .clone();
     std::fs::write(format!("{destination}.png"), olten);
 
     let end = Instant::now();
