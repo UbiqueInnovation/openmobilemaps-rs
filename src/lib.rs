@@ -265,22 +265,24 @@ pub fn draw_map(
         let the_icon = transform_icon_info_interface(the_icon);
         pin_mut!(icon_layer).add(&the_icon);
     }
+    use ellipse::Ellipse;
     let destination = match (index, &station.meeting_point, &station.workspace) {
         (ConnectionType::Connection(_), Some(m), _) => {
-            (m.coordinate.lon, m.coordinate.lat, m.name.clone())
+            (m.coordinate.lon, m.coordinate.lat, m.name.as_str().truncate_ellipse(10).to_string())
         }
-        (ConnectionType::Workspace(_), _, Some(m)) => {
-            (m.location.longitude, m.location.latitude, m.city.clone())
-        }
+        (ConnectionType::Workspace(_), _, Some(m)) => (
+            m.location.longitude,
+            m.location.latitude,
+            format!("{} ({})", m.title.as_str().truncate_ellipse(8), m.city),
+        ),
         _ => {
             display.destroy_context(&mut context);
             bail!("Something is not right")
         }
     };
     let mut the_icon = IconInfoInterfaceImpl::default();
-    let Ok((icon_width, icon_height, texture_data)) = get_destination_box(
-        &destination.2,
-        station
+    let icon_type = match index {
+        ConnectionType::Connection(_) => station
             .connections
             .last()
             .and_then(|a| a.connection.as_ref())
@@ -288,6 +290,11 @@ pub fn draw_map(
             .and_then(|a| a.route.as_ref())
             .map(|a| a.icon)
             .unwrap_or(1),
+        ConnectionType::Workspace(_) => 1,
+    };
+    let Ok((icon_width, icon_height, texture_data)) = get_destination_box(
+        &destination.2,
+        icon_type,
     ) else {
         display.destroy_context(&mut context);
         bail!("Could not place destination_box");
