@@ -3,13 +3,13 @@ pub use autocxx;
 pub use autocxx::cxx;
 pub use autocxx::prelude::*;
 
-use bindings::external_types::{Tiled2dMapLayerConfigWrapperImpl, LoaderInterfaceWrapperImpl};
+use bindings::external_types::{LoaderInterfaceWrapperImpl, Tiled2dMapLayerConfigWrapperImpl};
 use cxx::CxxVector;
 pub use ffi::*;
 
 pub use bindings::{cxx_const_cast, cxx_shared_cast};
 
-use autocxx_macro::{extern_rust_function};
+use autocxx_macro::extern_rust_function;
 
 #[extern_rust_function]
 pub fn log_rs(log_statement: String) {
@@ -154,18 +154,39 @@ include_cpp! {
 unsafe impl Send for TaskInterface {}
 unsafe impl Sync for TaskInterface {}
 
-pub mod SchedulerInterfaceImplPool {
-    use super::TaskInterface;
+pub trait TaskSpawner {
+    fn spawn_blocking(&self, task: autocxx::cxx::SharedPtr<TaskInterface>);
+}
 
+pub struct DefaultSpawner {
+    rt: tokio::runtime::Runtime,
+}
+
+impl TaskSpawner for DefaultSpawner {
+    fn spawn_blocking(&self, task: autocxx::cxx::SharedPtr<TaskInterface>) {
+        self.rt.spawn_blocking(move || {
+            log::debug!("running: {}", get_id(task.clone()));
+            run_task(task.clone());
+            log::debug!("finished: {}", get_id(task));
+        });
+    }
+}
+
+pub mod SchedulerInterfaceImplPool {
+    use super::{TaskInterface, TaskSpawner};
+    use crate::DefaultSpawner;
     lazy_static::lazy_static! {
-       pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex< (Option<std::sync::mpsc::Sender<cxx::SharedPtr<TaskInterface>>>, tokio::runtime::Runtime)> = {
-            std::sync::Mutex::new((None, tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .max_blocking_threads(5)
-            .worker_threads(1)
-            .thread_keep_alive(std::time::Duration::from_secs(5))
-            .build()
-            .expect("Failed to build internal tasks runtime")))
+       pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex< (Option<std::sync::mpsc::Sender<cxx::SharedPtr<TaskInterface>>>, Box<dyn TaskSpawner + Send + Sync>)> = {
+            std::sync::Mutex::new((None,
+                Box::new(DefaultSpawner {
+                    rt : tokio::runtime::Builder::new_multi_thread()
+                        .enable_all()
+                        .max_blocking_threads(5)
+                        .worker_threads(1)
+                        .thread_keep_alive(std::time::Duration::from_secs(5))
+                        .build()
+                        .expect("Failed to build internal tasks runtime")
+            })))
         };
     }
 }
@@ -229,11 +250,7 @@ impl SchedulerInterfaceRust {
                     log::error!("COULD NOT ACCESS SHARED RUNTIME! NO TASKS ARE RUNNING");
                     return;
                 };
-            spawner.1.spawn_blocking(move || {
-                log::debug!("running: {}", get_id(t.clone()));
-                run_task(t.clone());
-                log::debug!("finished: {}", get_id(t.clone()));
-            });
+            spawner.1.spawn_blocking(task);
         } else if let Ok(sender) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL.lock() {
             if let Some(sender) = sender.0.as_ref() {
                 let _ = sender.send(t);
