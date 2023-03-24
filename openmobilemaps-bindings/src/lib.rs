@@ -172,23 +172,32 @@ impl TaskSpawner for DefaultSpawner {
     }
 }
 
+type OptionalSender = Option<std::sync::mpsc::Sender<cxx::SharedPtr<TaskInterface>>>;
+type OptionalSpawner = Option<Box<dyn TaskSpawner + Send + Sync>>;
+type RuntimeType = (OptionalSender, OptionalSpawner);
 pub mod SchedulerInterfaceImplPool {
-    use super::{TaskInterface, TaskSpawner};
-    use crate::DefaultSpawner;
+    use super::{RuntimeType, TaskSpawner};
     lazy_static::lazy_static! {
-       pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex< (Option<std::sync::mpsc::Sender<cxx::SharedPtr<TaskInterface>>>, Box<dyn TaskSpawner + Send + Sync>)> = {
+       pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex<RuntimeType> = {
             std::sync::Mutex::new((None,
-                Box::new(DefaultSpawner {
-                    rt : tokio::runtime::Builder::new_multi_thread()
-                        .enable_all()
-                        .max_blocking_threads(5)
-                        .worker_threads(1)
-                        .thread_keep_alive(std::time::Duration::from_secs(5))
-                        .build()
-                        .expect("Failed to build internal tasks runtime")
-            })))
+               None))
         };
     }
+}
+
+pub fn init_default() {
+    SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
+        .lock()
+        .unwrap()
+        .1 = Some(Box::new(DefaultSpawner {
+        rt: tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .max_blocking_threads(5)
+            .worker_threads(1)
+            .thread_keep_alive(std::time::Duration::from_secs(5))
+            .build()
+            .expect("Failed to build internal tasks runtime"),
+    }));
 }
 
 pub struct SchedulerInterfaceRust {}
@@ -250,7 +259,9 @@ impl SchedulerInterfaceRust {
                     log::error!("COULD NOT ACCESS SHARED RUNTIME! NO TASKS ARE RUNNING");
                     return;
                 };
-            spawner.1.spawn_blocking(task);
+            if let Some(spawner) = spawner.1.as_ref() {
+                spawner.spawn_blocking(task)
+            }
         } else if let Ok(sender) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL.lock() {
             if let Some(sender) = sender.0.as_ref() {
                 let _ = sender.send(t);
