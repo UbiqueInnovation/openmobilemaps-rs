@@ -161,7 +161,8 @@ pub mod SchedulerInterfaceImplPool {
        pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex< (Option<std::sync::mpsc::Sender<cxx::SharedPtr<TaskInterface>>>, tokio::runtime::Runtime)> = {
             std::sync::Mutex::new((None, tokio::runtime::Builder::new_multi_thread()
             .enable_all()
-            .max_blocking_threads(512)
+            .max_blocking_threads(5)
+            .worker_threads(5)
             .thread_keep_alive(std::time::Duration::from_secs(30))
             .build()
             .expect("Failed to build internal tasks runtime")))
