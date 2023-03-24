@@ -163,7 +163,6 @@ pub mod SchedulerInterfaceImplPool {
             .enable_all()
             .max_blocking_threads(5)
             .worker_threads(1)
-            .thread_stack_size(256)
             .thread_keep_alive(std::time::Duration::from_secs(5))
             .build()
             .expect("Failed to build internal tasks runtime")))
