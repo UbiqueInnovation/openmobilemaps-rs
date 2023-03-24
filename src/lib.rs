@@ -1,12 +1,12 @@
 use anyhow::bail;
 use euclid::Size2D;
 
-use surfman::{
-    Connection, ContextAttributeFlags, ContextAttributes, GLVersion, SurfaceAccess, SurfaceType,
-};
 pub use gl;
 pub use openmobilemaps_sys;
 use std::default::Default;
+use surfman::{
+    Connection, ContextAttributeFlags, ContextAttributes, GLVersion, SurfaceAccess, SurfaceType,
+};
 
 use openmobilemaps_sys::openmobilemaps_bindings::{
     autocxx::subclass::CppSubclass,
@@ -19,9 +19,9 @@ use openmobilemaps_sys::openmobilemaps_bindings::{
 pub type MapData = (
     std::sync::mpsc::Receiver<SharedPtr<TaskInterface>>,
     SharedPtr<MapInterface>,
-    std::sync::mpsc::Receiver<()>,
-    UniquePtr<MapReadyCallbackInterface>,
-    std::sync::mpsc::Receiver<LayerReadyState>,
+    Option<std::sync::mpsc::Receiver<()>>,
+    Option<UniquePtr<MapReadyCallbackInterface>>,
+    Option<std::sync::mpsc::Receiver<LayerReadyState>>,
 );
 
 pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
@@ -70,7 +70,7 @@ pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
     }
 
     if device.make_context_current(&context).is_err() {
-        let _ =device.destroy_context(&mut context);
+        let _ = device.destroy_context(&mut context);
         bail!("Could not make context current");
     }
     log::debug!("Load GL pointers");
@@ -100,7 +100,7 @@ pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
     Ok((device, context))
 }
 
-pub fn setup_map() -> anyhow::Result<MapData> {
+pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapData> {
     let coordsystem = CoordinateSystemFactory::getEpsg3857System();
     let map_config = MapConfig::new(coordsystem.within_unique_ptr()).within_unique_ptr();
     if map_config.is_null() {
@@ -122,34 +122,41 @@ pub fn setup_map() -> anyhow::Result<MapData> {
     if map_interface.is_null() {
         bail!("Could not create map interface");
     }
-    let (invalidate_sender, invalidate_receiver) = std::sync::mpsc::channel();
+    let invalidate_receiver = if with_invalidate {
+        let (invalidate_sender, r) = std::sync::mpsc::channel();
 
-    let mut callbacks = MapCallbackInterfaceImpl::default();
-    callbacks.sender = Some(invalidate_sender);
-    let callbacks = MapCallbackInterfaceImpl::new_cpp_owned(callbacks);
-    if callbacks.is_null() {
-        bail!("Could not initialize map callbacks");
-    }
-    let callback_interface =
-        MapCallbackInterfaceImpl::as_MapCallbackInterface_unique_ptr(callbacks);
+        let mut callbacks = MapCallbackInterfaceImpl::default();
+        callbacks.sender = Some(invalidate_sender);
+        let callbacks = MapCallbackInterfaceImpl::new_cpp_owned(callbacks);
+        if callbacks.is_null() {
+            bail!("Could not initialize map callbacks");
+        }
+        let callback_interface =
+            MapCallbackInterfaceImpl::as_MapCallbackInterface_unique_ptr(callbacks);
 
-    pin_mut!(map_interface).setCallbackHandler(&to_map_callback_interface_shared_pointer(
-        callback_interface,
-    ));
-    let (ready_state_sender, ready_state_receiver) = std::sync::mpsc::channel();
-    let Ok(mut guard) = MAP_READY_CALLBACK.lock() else {
-        bail!("Failed to acquire lock for map callbacks");
+        pin_mut!(map_interface).setCallbackHandler(&to_map_callback_interface_shared_pointer(
+            callback_interface,
+        ));
+        Some(r)
+    } else {
+        None
     };
-    *guard = Some(ready_state_sender);
-    let ready_state = MapReadyCallbackInterfaceImpl::default();
+    let (ready_state_interface, ready_state_receiver) = if with_ready {
+        let (ready_state_sender, ready_state_receiver) = std::sync::mpsc::channel();
+        let Ok(mut guard) = MAP_READY_CALLBACK.lock() else {
+            bail!("Failed to acquire lock for map callbacks");
+        };
+        *guard = Some(ready_state_sender);
+        let ready_state = MapReadyCallbackInterfaceImpl::default();
 
-    let ready_state = MapReadyCallbackInterfaceImpl::new_cpp_owned(ready_state);
-    if ready_state.is_null() {
-        bail!("Callback interface was unexpectedly null");
-    }
-    let ready_state_interface =
-        MapReadyCallbackInterfaceImpl::as_MapReadyCallbackInterface_unique_ptr(ready_state);
-
+        let ready_state = MapReadyCallbackInterfaceImpl::new_cpp_owned(ready_state);
+        if ready_state.is_null() {
+            bail!("Callback interface was unexpectedly null");
+        }
+        (Some(MapReadyCallbackInterfaceImpl::as_MapReadyCallbackInterface_unique_ptr(ready_state)), Some(ready_state_receiver))
+    } else {
+        (None, None)
+    };
     pin_mut!(map_interface).setViewportSize(&Vec2I::new(1200, 630).within_unique_ptr());
     Ok((
         rx,
