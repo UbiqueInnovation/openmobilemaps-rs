@@ -4,7 +4,7 @@ use euclid::Size2D;
 use surfman::{
     Connection, ContextAttributeFlags, ContextAttributes, GLVersion, SurfaceAccess, SurfaceType,
 };
-
+pub use gl;
 pub use openmobilemaps_sys;
 use std::default::Default;
 
