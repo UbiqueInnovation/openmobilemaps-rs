@@ -41,7 +41,6 @@ ADD ./openmobilemaps-bindings openmobilemaps-bindings
 ADD ./openmobilemaps-sys openmobilemaps-sys
 ADD ./src src
 ADD ./AvertaStd-Bold.ttf AvertaStd-Bold.ttf 
-ADD ./bottomstuff.jpeg bottomstuff.jpeg
 ADD ./Cargo.lock Cargo.lock
 ADD ./Cargo.toml Cargo.toml
 ADD ./assets assets
@@ -89,8 +88,7 @@ USER openmobilemaps
 RUN mkdir /home/openmobilemaps/runtime
 WORKDIR /home/openmobilemaps
 ADD ./AvertaStd-Bold.ttf AvertaStd-Bold.ttf 
-ADD ./bottomstuff.jpeg bottomstuff.jpeg
-ADD ./train.png train.png
+
 ADD ./assets assets
 RUN mkdir output
 
