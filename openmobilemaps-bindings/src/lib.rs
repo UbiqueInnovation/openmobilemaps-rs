@@ -1,10 +1,10 @@
 pub mod bindings;
 use std::sync::atomic::Ordering;
 
-use SchedulerInterfaceImplPool::TASK_COUNT;
 pub use autocxx;
 pub use autocxx::cxx;
 pub use autocxx::prelude::*;
+use SchedulerInterfaceImplPool::TASK_COUNT;
 
 use bindings::external_types::{LoaderInterfaceWrapperImpl, Tiled2dMapLayerConfigWrapperImpl};
 use cxx::CxxVector;
@@ -180,8 +180,8 @@ type OptionalSpawner = Option<Box<dyn TaskSpawner + Send + Sync>>;
 type RuntimeType = (OptionalSender, OptionalSpawner);
 
 pub mod SchedulerInterfaceImplPool {
-    use std::sync::atomic::AtomicU64;
     use super::{RuntimeType, TaskSpawner};
+    use std::sync::atomic::AtomicU64;
     lazy_static::lazy_static! {
        pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex<RuntimeType> = {
             std::sync::Mutex::new((None,
@@ -258,7 +258,6 @@ mod Tiled2dMapLayerConfigWrapperImplMod {
 
 impl SchedulerInterfaceRust {
     fn addTaskRust(&self, task: autocxx::cxx::SharedPtr<TaskInterface>) {
-        TASK_COUNT.fetch_add(1, Ordering::SeqCst);
         let t = task.clone();
         if !is_graphics(t.clone()) {
             let Ok(spawner) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
@@ -267,11 +266,15 @@ impl SchedulerInterfaceRust {
                     return;
                 };
             if let Some(spawner) = spawner.1.as_ref() {
+                TASK_COUNT.fetch_add(1, Ordering::SeqCst);
                 spawner.spawn_blocking(task)
             }
         } else if let Ok(sender) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL.lock() {
             if let Some(sender) = sender.0.as_ref() {
-                let _ = sender.send(t);
+                TASK_COUNT.fetch_add(1, Ordering::SeqCst);
+                if sender.send(t).is_err() {
+                    TASK_COUNT.fetch_sub(1, Ordering::SeqCst);
+                }
             }
         }
     }
