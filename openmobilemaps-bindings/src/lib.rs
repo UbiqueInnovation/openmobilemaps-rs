@@ -1,4 +1,7 @@
 pub mod bindings;
+use std::sync::atomic::Ordering;
+
+use SchedulerInterfaceImplPool::TASK_COUNT;
 pub use autocxx;
 pub use autocxx::cxx;
 pub use autocxx::prelude::*;
@@ -175,13 +178,16 @@ impl TaskSpawner for DefaultSpawner {
 type OptionalSender = Option<std::sync::mpsc::Sender<cxx::SharedPtr<TaskInterface>>>;
 type OptionalSpawner = Option<Box<dyn TaskSpawner + Send + Sync>>;
 type RuntimeType = (OptionalSender, OptionalSpawner);
+
 pub mod SchedulerInterfaceImplPool {
+    use std::sync::atomic::AtomicU64;
     use super::{RuntimeType, TaskSpawner};
     lazy_static::lazy_static! {
        pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex<RuntimeType> = {
             std::sync::Mutex::new((None,
                None))
         };
+        pub static ref TASK_COUNT : AtomicU64 = AtomicU64::new(0);
     }
 }
 
@@ -252,6 +258,7 @@ mod Tiled2dMapLayerConfigWrapperImplMod {
 
 impl SchedulerInterfaceRust {
     fn addTaskRust(&self, task: autocxx::cxx::SharedPtr<TaskInterface>) {
+        TASK_COUNT.fetch_add(1, Ordering::SeqCst);
         let t = task.clone();
         if !is_graphics(t.clone()) {
             let Ok(spawner) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
