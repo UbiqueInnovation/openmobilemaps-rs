@@ -1,10 +1,8 @@
 pub mod bindings;
-use std::sync::atomic::Ordering;
 
 pub use autocxx;
 pub use autocxx::cxx;
 pub use autocxx::prelude::*;
-use SchedulerInterfaceImplPool::TASK_COUNT;
 
 use bindings::external_types::{LoaderInterfaceWrapperImpl, Tiled2dMapLayerConfigWrapperImpl};
 use cxx::CxxVector;
@@ -187,7 +185,6 @@ pub mod SchedulerInterfaceImplPool {
             std::sync::Mutex::new((None,
                None))
         };
-        pub static ref TASK_COUNT : AtomicU64 = AtomicU64::new(0);
     }
 }
 
@@ -266,14 +263,12 @@ impl SchedulerInterfaceRust {
                     return;
                 };
             if let Some(spawner) = spawner.1.as_ref() {
-                TASK_COUNT.fetch_add(1, Ordering::Relaxed);
                 spawner.spawn_blocking(task)
             }
         } else if let Ok(sender) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL.lock() {
             if let Some(sender) = sender.0.as_ref() {
-                TASK_COUNT.fetch_add(1, Ordering::Relaxed);
                 if sender.send(t).is_err() {
-                    TASK_COUNT.fetch_sub(1, Ordering::Relaxed);
+                    log::error!("Could not submit task");
                 }
             }
         }
