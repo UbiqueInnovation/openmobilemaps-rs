@@ -50,6 +50,7 @@ void Quad2dOpenGl::setFrame(const Quad2dD &frame, const RectD &textureCoordinate
 {
     std::lock_guard<std::recursive_mutex> lock(dataMutex);
     readyToDraw = false;
+    ready = false;
     this->frame = frame;
     this->textureCoordinates = textureCoordinates;
 }
