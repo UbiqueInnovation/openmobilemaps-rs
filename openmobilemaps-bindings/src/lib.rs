@@ -178,8 +178,7 @@ type OptionalSpawner = Option<Box<dyn TaskSpawner + Send + Sync>>;
 type RuntimeType = (OptionalSender, OptionalSpawner);
 
 pub mod SchedulerInterfaceImplPool {
-    use super::{RuntimeType, TaskSpawner};
-    use std::sync::atomic::AtomicU64;
+    use super::{RuntimeType};
     lazy_static::lazy_static! {
        pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex<RuntimeType> = {
             std::sync::Mutex::new((None,

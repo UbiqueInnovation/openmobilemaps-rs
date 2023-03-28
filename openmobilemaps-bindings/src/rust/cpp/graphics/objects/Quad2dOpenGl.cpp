@@ -41,7 +41,7 @@ void Quad2dOpenGl::clear()
         removeTexture();
     }
     readyToDraw = false;
-    ready = false
+    ready = false;
 }
 
 void Quad2dOpenGl::setIsInverseMasked(bool inversed) { isMaskInversed = inversed; }
