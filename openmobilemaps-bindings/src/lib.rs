@@ -199,6 +199,7 @@ mod custom {
         include!("TaskInterface.h");
         type TaskInterface = super::TaskInterface;
     }
+    impl Box<SchedulerInterfaceRust> {}
 }
 
 pub trait Tiled2dMapLayerConfigTrait {
