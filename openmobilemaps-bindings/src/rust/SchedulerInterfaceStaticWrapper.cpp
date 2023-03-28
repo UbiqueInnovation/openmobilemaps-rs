@@ -7,45 +7,50 @@
 #include "SchedulerInterfaceStaticWrapper.h"
 #include "cxxgen1.h"
 
+SchedulerInterfaceStaticWrapper::SchedulerInterfaceStaticWrapper(SchedulerInterfaceRust *ptr) : rustBox(::rust::Box<SchedulerInterfaceRust>::from_raw(ptr))
+{
+}
+
 void SchedulerInterfaceStaticWrapper::addTask(const std::shared_ptr<TaskInterface> &task)
 {
-    {
-        auto inner = new_task_interface();
-        inner->addTaskRust(task);
-    }
+    this->rustBox->addTaskRust(task);
+    // {
+    //     auto inner = new_task_interface();
+    //     inner->addTaskRust(task);
+    // }
 }
 
 void SchedulerInterfaceStaticWrapper::addTasks(const std::vector<std::shared_ptr<TaskInterface>> &tasks)
 {
     {
-        auto inner = new_task_interface();
+        // auto inner = new_task_interface();
         for (auto task : tasks)
         {
-            inner->addTaskRust(task);
+            this->rustBox->addTaskRust(task);
         }
     }
 }
 
 void SchedulerInterfaceStaticWrapper::removeTask(const std::string &id)
 {
-    auto inner = new_task_interface();
-    inner->removeTaskRust(id);
+    // auto inner = new_task_interface();
+    this->rustBox->removeTaskRust(id);
 }
 
 void SchedulerInterfaceStaticWrapper::clear()
 {
-    auto inner = new_task_interface();
-    inner->clearRust();
+    // auto inner = new_task_interface();
+    this->rustBox->clearRust();
 }
 
 void SchedulerInterfaceStaticWrapper::pause()
 {
-    auto inner = new_task_interface();
-    inner->pauseRust();
+    // auto inner = new_task_interface();
+    this->rustBox->pauseRust();
 }
 
 void SchedulerInterfaceStaticWrapper::resume()
 {
-    auto inner = new_task_interface();
-    inner->resumeRust();
+    // auto inner = new_task_interface();
+    this->rustBox->resumeRust();
 }

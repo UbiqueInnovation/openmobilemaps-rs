@@ -14,22 +14,18 @@ use image::GenericImageView;
 use crate::ffi;
 use crate::ffi::*;
 use crate::LoaderInterfaceTrait;
-use std::sync::Mutex;
 
 #[subclass(superclass("MapReadyCallbackInterface"))]
 #[derive(Default)]
-pub struct MapReadyCallbackInterfaceImpl {}
-lazy_static::lazy_static! {
-    pub static ref MAP_READY_CALLBACK: Mutex<Option<Sender<LayerReadyState>>> = Mutex::new(None);
+pub struct MapReadyCallbackInterfaceImpl {
+    pub sender: Option<Sender<LayerReadyState>>,
 }
 
 impl MapReadyCallbackInterface_methods for MapReadyCallbackInterfaceImpl {
     fn stateDidUpdate(&mut self, state: LayerReadyState) {
-        if let Ok(guard) = MAP_READY_CALLBACK.lock() {
-            if let Some(sender) = guard.as_ref() {
-                if state == LayerReadyState::READY {
-                    let _ = sender.send(LayerReadyState::READY);
-                }
+        if let Some(sender) = self.sender.as_ref() {
+            if state == LayerReadyState::READY {
+                let _ = sender.send(LayerReadyState::READY);
             }
         }
     }
@@ -112,7 +108,6 @@ impl MapCallbackInterface_methods for MapCallbackInterfaceImpl {
 pub struct TextureHolderInterfaceImpl {
     image_width: usize,
     image_height: usize,
-    image_data: Vec<u8>,
     texture_data: Vec<u8>,
     usage_counter: usize,
     id: u32,
@@ -237,7 +232,6 @@ impl LoaderInterfaceTrait for DefaultLoaderInterface {
         let mut interface = TextureHolderInterfaceImpl {
             image_width: image_dimensions.0 as usize,
             image_height: image_dimensions.1 as usize,
-            image_data: databytes,
             texture_data: img_buffer.to_vec(),
             ..Default::default()
         };

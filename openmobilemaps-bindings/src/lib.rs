@@ -177,45 +177,23 @@ type OptionalSender = Option<std::sync::mpsc::Sender<cxx::SharedPtr<TaskInterfac
 type OptionalSpawner = Option<Box<dyn TaskSpawner + Send + Sync>>;
 type RuntimeType = (OptionalSender, OptionalSpawner);
 
-pub mod SchedulerInterfaceImplPool {
-    use super::{RuntimeType};
-    lazy_static::lazy_static! {
-       pub static ref STATIC_RUNTIME_POOL : std::sync::Mutex<RuntimeType> = {
-            std::sync::Mutex::new((None,
-               None))
-        };
-    }
+pub struct SchedulerInterfaceRust {
+    pub spawner: Box<dyn TaskSpawner>,
+    pub channel: Sender<autocxx::cxx::SharedPtr<TaskInterface>>,
 }
+use std::sync::mpsc::{Receiver, Sender};
 
-pub fn init_default() {
-    SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
-        .lock()
-        .unwrap()
-        .1 = Some(Box::new(DefaultSpawner {
-        rt: tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .max_blocking_threads(5)
-            .worker_threads(1)
-            .thread_keep_alive(std::time::Duration::from_secs(5))
-            .build()
-            .expect("Failed to build internal tasks runtime"),
-    }));
-}
-
-pub struct SchedulerInterfaceRust {}
-pub fn new_task_interface() -> Box<SchedulerInterfaceRust> {
-    Box::new(SchedulerInterfaceRust {})
-}
+pub struct TaskReceiver(Receiver<autocxx::cxx::SharedPtr<TaskInterface>>);
 #[cxx::bridge]
 mod custom {
     extern "Rust" {
         type SchedulerInterfaceRust;
-        fn addTaskRust(&self, task: SharedPtr<TaskInterface>);
-        fn removeTaskRust(&self, id: String);
-        fn clearRust(&self);
-        fn resumeRust(&self);
-        fn pauseRust(&self);
-        fn new_task_interface() -> Box<SchedulerInterfaceRust>;
+        type TaskReceiver;
+        fn addTaskRust(self: &SchedulerInterfaceRust, task: SharedPtr<TaskInterface>);
+        fn removeTaskRust(self: &SchedulerInterfaceRust, id: String);
+        fn clearRust(self: &SchedulerInterfaceRust);
+        fn resumeRust(self: &SchedulerInterfaceRust);
+        fn pauseRust(self: &SchedulerInterfaceRust);
     }
     extern "C++" {
         include!("TaskInterface.h");
@@ -253,22 +231,31 @@ mod Tiled2dMapLayerConfigWrapperImplMod {
 }
 
 impl SchedulerInterfaceRust {
+    pub fn new() -> (Self, Receiver<autocxx::cxx::SharedPtr<TaskInterface>>) {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        (
+            Self {
+                spawner: Box::new(DefaultSpawner {
+                    rt: tokio::runtime::Builder::new_multi_thread()
+                        .enable_all()
+                        .max_blocking_threads(5)
+                        .worker_threads(1)
+                        .thread_keep_alive(std::time::Duration::from_secs(5))
+                        .build()
+                        .expect("Failed to build internal tasks runtime"),
+                }),
+                channel: sender,
+            },
+            receiver,
+        )
+    }
     fn addTaskRust(&self, task: autocxx::cxx::SharedPtr<TaskInterface>) {
         let t = task.clone();
         if !is_graphics(t.clone()) {
-            let Ok(spawner) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
-                .lock() else {
-                    log::error!("COULD NOT ACCESS SHARED RUNTIME! NO TASKS ARE RUNNING");
-                    return;
-                };
-            if let Some(spawner) = spawner.1.as_ref() {
-                spawner.spawn_blocking(task)
-            }
-        } else if let Ok(sender) = SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL.lock() {
-            if let Some(sender) = sender.0.as_ref() {
-                if sender.send(t).is_err() {
-                    log::error!("Could not submit task");
-                }
+            self.spawner.spawn_blocking(task);
+        } else {
+            if self.channel.send(task).is_err() {
+                log::error!("Could not submit task");
             }
         }
     }

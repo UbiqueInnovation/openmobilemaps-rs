@@ -6,12 +6,19 @@
 
 #pragma once
 #include "SchedulerInterface.h"
+#include "cxx.h"
 // #include "cxxgen.h"
 struct SchedulerInterfaceRust;
 
 class SchedulerInterfaceStaticWrapper : public SchedulerInterface
 {
+  ::rust::Box<SchedulerInterfaceRust> rustBox;
+
 public:
+  SchedulerInterfaceStaticWrapper(const SchedulerInterfaceStaticWrapper &) = delete;
+  SchedulerInterfaceStaticWrapper &operator=(const SchedulerInterfaceStaticWrapper &) = delete;
+
+  SchedulerInterfaceStaticWrapper(SchedulerInterfaceRust *ptr);
 
   virtual void addTask(const std::shared_ptr<TaskInterface> &task) override;
 

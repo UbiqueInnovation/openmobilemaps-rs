@@ -10,9 +10,7 @@ use surfman::{
 
 use openmobilemaps_sys::openmobilemaps_bindings::{
     autocxx::subclass::CppSubclass,
-    bindings::impls::{
-        MapCallbackInterfaceImpl, MapReadyCallbackInterfaceImpl, MAP_READY_CALLBACK,
-    },
+    bindings::impls::{MapCallbackInterfaceImpl, MapReadyCallbackInterfaceImpl},
     cxx::SharedPtr,
     *,
 };
@@ -106,16 +104,15 @@ pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapD
     if map_config.is_null() {
         bail!("Could not create map config");
     }
-    let (tx, rx) = std::sync::mpsc::channel();
-    SchedulerInterfaceImplPool::STATIC_RUNTIME_POOL
-        .lock()
-        .unwrap()
-        .0 = Some(tx);
+    let (scheduler, task_receiver) = SchedulerInterfaceRust::new();
+    let scheduler = Box::new(scheduler);
 
-    let scheduler = SchedulerInterfaceStaticWrapper::new().within_unique_ptr();
+    let scheduler = unsafe { SchedulerInterfaceStaticWrapper::new1(Box::into_raw(scheduler) as _) }
+        .within_unique_ptr();
     if scheduler.is_null() {
         bail!("Could not initialize schedulerinterface");
     }
+
     let scheduler = transform_unique(scheduler);
     let map_interface: SharedPtr<MapInterface> =
         MapInterface::createWithOpenGl(&map_config, &scheduler, 1.0);
@@ -143,23 +140,25 @@ pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapD
     };
     let (ready_state_interface, ready_state_receiver) = if with_ready {
         let (ready_state_sender, ready_state_receiver) = std::sync::mpsc::channel();
-        let Ok(mut guard) = MAP_READY_CALLBACK.lock() else {
-            bail!("Failed to acquire lock for map callbacks");
-        };
-        *guard = Some(ready_state_sender);
-        let ready_state = MapReadyCallbackInterfaceImpl::default();
 
+        let mut ready_state = MapReadyCallbackInterfaceImpl::default();
+        ready_state.sender = Some(ready_state_sender);
         let ready_state = MapReadyCallbackInterfaceImpl::new_cpp_owned(ready_state);
         if ready_state.is_null() {
             bail!("Callback interface was unexpectedly null");
         }
-        (Some(MapReadyCallbackInterfaceImpl::as_MapReadyCallbackInterface_unique_ptr(ready_state)), Some(ready_state_receiver))
+        (
+            Some(
+                MapReadyCallbackInterfaceImpl::as_MapReadyCallbackInterface_unique_ptr(ready_state),
+            ),
+            Some(ready_state_receiver),
+        )
     } else {
         (None, None)
     };
     pin_mut!(map_interface).setViewportSize(&Vec2I::new(1200, 630).within_unique_ptr());
     Ok((
-        rx,
+        task_receiver,
         map_interface,
         invalidate_receiver,
         ready_state_interface,
