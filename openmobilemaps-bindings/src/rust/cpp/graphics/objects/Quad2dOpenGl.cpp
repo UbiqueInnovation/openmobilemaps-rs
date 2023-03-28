@@ -25,48 +25,69 @@ std::shared_ptr<GraphicsObjectInterface> Quad2dOpenGl::asGraphicsObject() { retu
 
 std::shared_ptr<MaskingObjectInterface> Quad2dOpenGl::asMaskingObject() { return shared_from_this(); }
 
-void Quad2dOpenGl::clear() {
+void Quad2dOpenGl::clear()
+{
     std::lock_guard<std::recursive_mutex> lock(dataMutex);
-    if (ready) {
+    if (readyToDraw)
+    {
         removeGlBuffers();
     }
-    if (textureCoordsReady) {
+    if (textureCoordsReady)
+    {
         removeTextureCoordsGlBuffers();
     }
-    if (textureHolder) {
+    if (textureHolder)
+    {
         removeTexture();
     }
-    ready = false;
+    readyToDraw = false;
+    ready = false
 }
 
 void Quad2dOpenGl::setIsInverseMasked(bool inversed) { isMaskInversed = inversed; }
 
-void Quad2dOpenGl::setFrame(const Quad2dD &frame, const RectD &textureCoordinates) {
+void Quad2dOpenGl::setFrame(const Quad2dD &frame, const RectD &textureCoordinates)
+{
     std::lock_guard<std::recursive_mutex> lock(dataMutex);
-    ready = false;
+    readyToDraw = false;
     this->frame = frame;
     this->textureCoordinates = textureCoordinates;
 }
 
-void Quad2dOpenGl::setup(const std::shared_ptr<::RenderingContextInterface> &context) {
-    if (ready)
+void Quad2dOpenGl::setup(const std::shared_ptr<::RenderingContextInterface> &context)
+{
+    if (readyToDraw)
         return;
     std::lock_guard<std::recursive_mutex> lock(dataMutex);
 
     float frameZ = 0;
     vertices = {
-        (float)frame.topLeft.x,     (float)frame.topLeft.y,     frameZ,
-        (float)frame.bottomLeft.x,  (float)frame.bottomLeft.y,  frameZ,
-        (float)frame.bottomRight.x, (float)frame.bottomRight.y, frameZ,
-        (float)frame.topRight.x,    (float)frame.topRight.y,    frameZ,
+        (float)frame.topLeft.x,
+        (float)frame.topLeft.y,
+        frameZ,
+        (float)frame.bottomLeft.x,
+        (float)frame.bottomLeft.y,
+        frameZ,
+        (float)frame.bottomRight.x,
+        (float)frame.bottomRight.y,
+        frameZ,
+        (float)frame.topRight.x,
+        (float)frame.topRight.y,
+        frameZ,
     };
     indices = {
-        0, 1, 2, 0, 2, 3,
+        0,
+        1,
+        2,
+        0,
+        2,
+        3,
     };
     adjustTextureCoordinates();
 
     std::shared_ptr<OpenGlContext> openGlContext = std::static_pointer_cast<OpenGlContext>(context);
-    if (openGlContext->getProgram(shaderProgram->getProgramName()) == 0) {
+    if (openGlContext->getProgram(shaderProgram->getProgramName()) == 0)
+    {
         shaderProgram->setupProgram(openGlContext);
     }
 
@@ -77,10 +98,11 @@ void Quad2dOpenGl::setup(const std::shared_ptr<::RenderingContextInterface> &con
 
     programHandle = program;
     // log_rs("Vertices updated\n");
-    ready = true;
+    readyToDraw = true;
 }
 
-void Quad2dOpenGl::prepareGlData(const std::shared_ptr<OpenGlContext> &openGlContext, const int &programHandle) {
+void Quad2dOpenGl::prepareGlData(const std::shared_ptr<OpenGlContext> &openGlContext, const int &programHandle)
+{
     glUseProgram(programHandle);
     OpenGlHelper::checkGlError("glUseProgram");
 
@@ -109,16 +131,19 @@ void Quad2dOpenGl::prepareGlData(const std::shared_ptr<OpenGlContext> &openGlCon
     OpenGlHelper::checkGlError("glGetUniformLocation");
 }
 
-void Quad2dOpenGl::prepareTextureCoordsGlData(const std::shared_ptr<OpenGlContext> &openGlContext, const int &programHandle) {
+void Quad2dOpenGl::prepareTextureCoordsGlData(const std::shared_ptr<OpenGlContext> &openGlContext, const int &programHandle)
+{
     glUseProgram(programHandle);
     OpenGlHelper::checkGlError("[Quad2dOpenGl] glUseProgram");
-    if (textureCoordsReady) {
+    if (textureCoordsReady)
+    {
         removeTextureCoordsGlBuffers();
     }
 
     textureCoordinateHandle = glGetAttribLocation(programHandle, "texCoordinate");
     OpenGlHelper::checkGlError("glGetAttribLocation");
-    if (textureCoordinateHandle < 0) {
+    if (textureCoordinateHandle < 0)
+    {
         usesTextureCoords = false;
         return;
     }
@@ -135,15 +160,18 @@ void Quad2dOpenGl::prepareTextureCoordsGlData(const std::shared_ptr<OpenGlContex
     textureCoordsReady = true;
 }
 
-void Quad2dOpenGl::removeGlBuffers() {
+void Quad2dOpenGl::removeGlBuffers()
+{
     glDeleteBuffers(1, &vertexBuffer);
     OpenGlHelper::checkGlError("glDeleteBuffers");
     glDeleteBuffers(1, &indexBuffer);
     OpenGlHelper::checkGlError("glDeleteBuffers");
 }
 
-void Quad2dOpenGl::removeTextureCoordsGlBuffers() {
-    if (textureCoordsReady) {
+void Quad2dOpenGl::removeTextureCoordsGlBuffers()
+{
+    if (textureCoordsReady)
+    {
         glDeleteBuffers(1, &textureCoordsBuffer);
         OpenGlHelper::checkGlError("glDeleteBuffers");
         textureCoordsReady = false;
@@ -151,9 +179,11 @@ void Quad2dOpenGl::removeTextureCoordsGlBuffers() {
 }
 
 void Quad2dOpenGl::loadTexture(const std::shared_ptr<::RenderingContextInterface> &context,
-                               const std::shared_ptr<TextureHolderInterface> &textureHolder) {
+                               const std::shared_ptr<TextureHolderInterface> &textureHolder)
+{
     std::lock_guard<std::recursive_mutex> lock(dataMutex);
-    if (textureHolder != nullptr) {
+    if (textureHolder != nullptr)
+    {
         texturePointer = textureHolder->attachToGraphics();
 
         factorHeight = textureHolder->getImageHeight() * 1.0f / textureHolder->getTextureHeight();
@@ -161,7 +191,8 @@ void Quad2dOpenGl::loadTexture(const std::shared_ptr<::RenderingContextInterface
         // log_rs(std::to_string(textureHolder->getImageWidth()));
         adjustTextureCoordinates();
 
-        if (ready) {
+        if (ready)
+        {
             std::shared_ptr<OpenGlContext> openGlContext = std::static_pointer_cast<OpenGlContext>(context);
             int program = openGlContext->getProgram(shaderProgram->getProgramName());
             prepareTextureCoordsGlData(openGlContext, program);
@@ -171,19 +202,23 @@ void Quad2dOpenGl::loadTexture(const std::shared_ptr<::RenderingContextInterface
     }
 }
 
-void Quad2dOpenGl::removeTexture() {
+void Quad2dOpenGl::removeTexture()
+{
     std::lock_guard<std::recursive_mutex> lock(dataMutex);
-    if (textureHolder) {
+    if (textureHolder)
+    {
         textureHolder->clearFromGraphics();
         textureHolder = nullptr;
         texturePointer = -1;
-        if (textureCoordsReady) {
+        if (textureCoordsReady)
+        {
             removeTextureCoordsGlBuffers();
         }
     }
 }
 
-void Quad2dOpenGl::adjustTextureCoordinates() {
+void Quad2dOpenGl::adjustTextureCoordinates()
+{
     float tMinX = factorWidth * textureCoordinates.x;
     float tMaxX = factorWidth * (textureCoordinates.x + textureCoordinates.width);
     float tMinY = factorHeight * textureCoordinates.y;
@@ -193,7 +228,8 @@ void Quad2dOpenGl::adjustTextureCoordinates() {
 }
 
 void Quad2dOpenGl::renderAsMask(const std::shared_ptr<::RenderingContextInterface> &context, const RenderPassConfig &renderPass,
-                                int64_t mvpMatrix, double screenPixelAsRealMeterFactor) {
+                                int64_t mvpMatrix, double screenPixelAsRealMeterFactor)
+{
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
     OpenGlHelper::checkGlError("glColorMask");
     render(context, renderPass, mvpMatrix, false, screenPixelAsRealMeterFactor);
@@ -202,16 +238,19 @@ void Quad2dOpenGl::renderAsMask(const std::shared_ptr<::RenderingContextInterfac
 }
 
 void Quad2dOpenGl::render(const std::shared_ptr<::RenderingContextInterface> &context, const RenderPassConfig &renderPass,
-                          int64_t mvpMatrix, bool isMasked, double screenPixelAsRealMeterFactor) {
+                          int64_t mvpMatrix, bool isMasked, double screenPixelAsRealMeterFactor)
+{
     // log_rs("IN RENDER");
-    if (!ready || (usesTextureCoords && !textureCoordsReady)) {
+    if (!readyToDraw || (usesTextureCoords && !textureCoordsReady))
+    {
         return;
     }
 
     glUseProgram(programHandle);
     OpenGlHelper::checkGlError("glUseProgram");
 
-    if (isMasked) {
+    if (isMasked)
+    {
         glStencilFunc(GL_EQUAL, isMaskInversed ? 0 : 128, 128);
         OpenGlHelper::checkGlError("glStencilFunc");
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP);
@@ -223,7 +262,8 @@ void Quad2dOpenGl::render(const std::shared_ptr<::RenderingContextInterface> &co
     glUseProgram(mProgram);
     OpenGlHelper::checkGlError("glUseProgram");
 
-    if (usesTextureCoords) {
+    if (usesTextureCoords)
+    {
         prepareTextureDraw(openGlContext, programHandle);
 
         glEnableVertexAttribArray(textureCoordinateHandle);
@@ -274,17 +314,21 @@ void Quad2dOpenGl::render(const std::shared_ptr<::RenderingContextInterface> &co
     glDisableVertexAttribArray(positionHandle);
     OpenGlHelper::checkGlError("glDisableVertexAttribArray");
 
-    if (textureHolder) {
+    if (textureHolder)
+    {
         glDisableVertexAttribArray(textureCoordinateHandle);
         OpenGlHelper::checkGlError("glDisableVertexAttribArray");
     }
 
     glDisable(GL_BLEND);
     OpenGlHelper::checkGlError("glDisable");
+    ready = true;
 }
 
-void Quad2dOpenGl::prepareTextureDraw(std::shared_ptr<OpenGlContext> &openGLContext, int programHandle) {
-    if (!textureHolder) {
+void Quad2dOpenGl::prepareTextureDraw(std::shared_ptr<OpenGlContext> &openGLContext, int programHandle)
+{
+    if (!textureHolder)
+    {
         log_rs("no texture holder");
         return;
     }
