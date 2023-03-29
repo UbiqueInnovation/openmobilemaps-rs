@@ -4,9 +4,7 @@ use euclid::Size2D;
 pub use gl;
 pub use openmobilemaps_sys;
 use std::default::Default;
-use surfman::{
-    Connection, ContextAttributeFlags, ContextAttributes, GLVersion, SurfaceAccess, SurfaceType,
-};
+use surfman::{ContextAttributeFlags, ContextAttributes, GLVersion, SurfaceAccess, SurfaceType};
 
 use openmobilemaps_sys::openmobilemaps_bindings::{
     autocxx::subclass::CppSubclass,
@@ -23,6 +21,14 @@ pub type MapData = (
 );
 
 pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
+    #[cfg(target_os = "linux")]
+    {
+        use surfman::platform::generic::multi::connection::Connection as Connection;
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        use surfman::Connection as Connection;
+    }
     let Ok(connection) = Connection::new() else  {
         bail!("Failed to setup connection to display");
     };
