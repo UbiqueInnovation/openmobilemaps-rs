@@ -13,8 +13,18 @@ use openmobilemaps_sys::openmobilemaps_bindings::{
     *,
 };
 
+#[cfg(target_os = "linux")]
+use surfman::platform::unix::generic::connection::Connection;
+#[cfg(target_os = "linux")]
+use surfman::platform::unix::generic::context::Context;
+#[cfg(target_os = "linux")]
+use surfman::platform::unix::generic::device::Device;
+
+#[cfg(not(target_os = "linux"))]
 use surfman::Connection;
+#[cfg(not(target_os = "linux"))]
 use surfman::Context;
+#[cfg(not(target_os = "linux"))]
 use surfman::Device;
 
 pub type MapData = (
