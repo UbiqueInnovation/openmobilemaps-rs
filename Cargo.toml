@@ -10,7 +10,7 @@ lazy_static = "1.4.0"
 tokio = {version = "1.26", features = ["full"]}
 ureq = "2.6.2"
 openmobilemaps-sys = { path = "./openmobilemaps-sys"}
-surfman = {version = "0.6.0", features = ["sm-x11", "sm-angle-builtin"]}
+surfman = {version = "0.6.0"}
 anyhow = "1.0.70"
 log = "0.4.17"
 euclid = "0.22.7"
