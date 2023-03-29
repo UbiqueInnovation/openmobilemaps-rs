@@ -23,7 +23,7 @@ pub type MapData = (
 pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
     #[cfg(target_os = "linux")]
     {
-        use surfman::platform::unix::generic::Connection;
+        use surfman::platform::unix::generic::connection::Connection;
     }
     #[cfg(not(target_os = "linux"))]
     {
