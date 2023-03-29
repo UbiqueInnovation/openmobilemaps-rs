@@ -12,6 +12,13 @@ use openmobilemaps_sys::openmobilemaps_bindings::{
     cxx::SharedPtr,
     *,
 };
+
+#[cfg(target_os = "linux")]
+use surfman::platform::unix::generic::connection::Connection;
+
+#[cfg(not(target_os = "linux"))]
+use surfman::Connection;
+
 pub type MapData = (
     std::sync::mpsc::Receiver<SharedPtr<TaskInterface>>,
     SharedPtr<MapInterface>,
@@ -21,15 +28,6 @@ pub type MapData = (
 );
 
 pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
-    #[cfg(target_os = "linux")]
-    {
-        use surfman::platform::unix::generic::connection::Connection;
-    }
-    #[cfg(not(target_os = "linux"))]
-    {
-        use surfman::Connection;
-    }
-    
     let Ok(connection) = Connection::new() else  {
         bail!("Failed to setup connection to display");
     };
