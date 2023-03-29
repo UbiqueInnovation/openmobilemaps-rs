@@ -15,9 +15,17 @@ use openmobilemaps_sys::openmobilemaps_bindings::{
 
 #[cfg(target_os = "linux")]
 use surfman::platform::unix::generic::connection::Connection;
+#[cfg(target_os = "linux")]
+use surfman::platform::unix::generic::context::Context;
+#[cfg(target_os = "linux")]
+use surfman::platform::unix::generic::device::Device;
 
 #[cfg(not(target_os = "linux"))]
 use surfman::Connection;
+#[cfg(not(target_os = "linux"))]
+use surfman::Context;
+#[cfg(not(target_os = "linux"))]
+use surfman::Device;
 
 pub type MapData = (
     std::sync::mpsc::Receiver<SharedPtr<TaskInterface>>,
@@ -27,7 +35,7 @@ pub type MapData = (
     Option<std::sync::mpsc::Receiver<LayerReadyState>>,
 );
 
-pub fn setup_opengl() -> anyhow::Result<(surfman::Device, surfman::Context)> {
+pub fn setup_opengl() -> anyhow::Result<(Device, Context)> {
     let Ok(connection) = Connection::new() else  {
         bail!("Failed to setup connection to display");
     };
