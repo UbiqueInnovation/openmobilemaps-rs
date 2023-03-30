@@ -35,7 +35,7 @@ pub type MapData = (
     Option<std::sync::mpsc::Receiver<LayerReadyState>>,
 );
 
-pub fn setup_opengl() -> anyhow::Result<(Device, Context)> {
+pub fn setup_opengl(view_port: (usize, usize)) -> anyhow::Result<(Device, Context)> {
     let Ok(connection) = Connection::new() else  {
         bail!("Failed to setup connection to display");
     };
@@ -65,7 +65,7 @@ pub fn setup_opengl() -> anyhow::Result<(Device, Context)> {
             &context,
             SurfaceAccess::GPUOnly,
             SurfaceType::Generic {
-                size: Size2D::new(1200, 630),
+                size: Size2D::new(view_port.0 as i32, view_port.1 as i32),
             },
         )
         else {
@@ -105,13 +105,13 @@ pub fn setup_opengl() -> anyhow::Result<(Device, Context)> {
         };
         gl::BindFramebuffer(gl::FRAMEBUFFER, surface_info.framebuffer_object);
         log::debug!("Set viewport");
-        gl::Viewport(0, 0, 1200, 630);
+        gl::Viewport(0, 0, view_port.0 as i32, view_port.1 as i32);
     }
 
     Ok((device, context))
 }
 
-pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapData> {
+pub fn setup_map(view_port: (usize, usize), with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapData> {
     let coordsystem = CoordinateSystemFactory::getEpsg3857System();
     let map_config = MapConfig::new(coordsystem.within_unique_ptr()).within_unique_ptr();
     if map_config.is_null() {
@@ -169,7 +169,7 @@ pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapD
     } else {
         (None, None)
     };
-    pin_mut!(map_interface).setViewportSize(&Vec2I::new(1200, 630).within_unique_ptr());
+    pin_mut!(map_interface).setViewportSize(&Vec2I::new(view_port.0 as i32, view_port.1 as i32).within_unique_ptr());
     Ok((
         task_receiver,
         map_interface,
@@ -180,6 +180,7 @@ pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapD
 }
 
 pub fn draw_ready_frame(
+    view_port: (usize, usize),
     map_interface: SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::MapInterface>,
     rx: std::sync::mpsc::Receiver<
         SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::TaskInterface>,
@@ -198,7 +199,7 @@ pub fn draw_ready_frame(
         pin_mut!(map_interface).drawReadyFrame(&bounds, 10.0, &ready_state_interface);
     });
 
-    let mut buffer = vec![0u8; 1200 * 630 * 4];
+    let mut buffer = vec![0u8; view_port.0 * view_port.1 * 4];
 
     let _ = display.make_context_current(context);
 
@@ -221,8 +222,8 @@ pub fn draw_ready_frame(
                     gl::ReadPixels(
                         0,
                         0,
-                        1200,
-                        630,
+                        view_port.0 as i32,
+                        view_port.1 as i32,
                         gl::RGBA,
                         gl::UNSIGNED_BYTE,
                         buffer.as_mut_ptr() as _,
