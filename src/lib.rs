@@ -111,7 +111,11 @@ pub fn setup_opengl(view_port: (usize, usize)) -> anyhow::Result<(Device, Contex
     Ok((device, context))
 }
 
-pub fn setup_map(view_port: (usize, usize), with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapData> {
+pub fn setup_map(
+    view_port: (usize, usize),
+    with_invalidate: bool,
+    with_ready: bool,
+) -> anyhow::Result<MapData> {
     let coordsystem = CoordinateSystemFactory::getEpsg3857System();
     let map_config = MapConfig::new(coordsystem.within_unique_ptr()).within_unique_ptr();
     if map_config.is_null() {
@@ -169,7 +173,8 @@ pub fn setup_map(view_port: (usize, usize), with_invalidate: bool, with_ready: b
     } else {
         (None, None)
     };
-    pin_mut!(map_interface).setViewportSize(&Vec2I::new(view_port.0 as i32, view_port.1 as i32).within_unique_ptr());
+    pin_mut!(map_interface)
+        .setViewportSize(&Vec2I::new(view_port.0 as i32, view_port.1 as i32).within_unique_ptr());
     Ok((
         task_receiver,
         map_interface,
@@ -193,7 +198,11 @@ pub fn draw_ready_frame(
     context: &mut Context,
     ready_state_receiver: &std::sync::mpsc::Receiver<LayerReadyState>,
 ) -> Vec<u8> {
-    pin_mut!(map_interface).setViewportSize(&Vec2I::new(view_port.0 as i32, view_port.1 as i32).within_unique_ptr());
+    pin_mut!(map_interface).resume();
+    pin_mut!(map_interface)
+        .setViewportSize(&Vec2I::new(view_port.0 as i32, view_port.1 as i32).within_unique_ptr());
+    pin_mut!(map_interface).invalidate();
+    pin_mut!(map_interface).drawFrame();
     let map_interface2 = map_interface.clone();
     std::thread::spawn(move || {
         let map_interface = map_interface2;
