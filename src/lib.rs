@@ -182,7 +182,7 @@ pub fn setup_map(view_port: (usize, usize), with_invalidate: bool, with_ready: b
 pub fn draw_ready_frame(
     view_port: (usize, usize),
     map_interface: SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::MapInterface>,
-    rx: std::sync::mpsc::Receiver<
+    rx: &std::sync::mpsc::Receiver<
         SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::TaskInterface>,
     >,
     bounds: UniquePtr<RectCoord>,
@@ -191,7 +191,7 @@ pub fn draw_ready_frame(
     >,
     display: &Device,
     context: &mut Context,
-    ready_state_receiver: std::sync::mpsc::Receiver<LayerReadyState>,
+    ready_state_receiver: &std::sync::mpsc::Receiver<LayerReadyState>,
 ) -> Vec<u8> {
     pin_mut!(map_interface).setViewportSize(&Vec2I::new(view_port.0 as i32, view_port.1 as i32).within_unique_ptr());
     let map_interface2 = map_interface.clone();
