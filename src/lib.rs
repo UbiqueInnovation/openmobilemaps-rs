@@ -193,6 +193,7 @@ pub fn draw_ready_frame(
     context: &mut Context,
     ready_state_receiver: std::sync::mpsc::Receiver<LayerReadyState>,
 ) -> Vec<u8> {
+    pin_mut!(map_interface).setViewportSize(&Vec2I::new(view_port.0 as i32, view_port.1 as i32).within_unique_ptr());
     let map_interface2 = map_interface.clone();
     std::thread::spawn(move || {
         let map_interface = map_interface2;
