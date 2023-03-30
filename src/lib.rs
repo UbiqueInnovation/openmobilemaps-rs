@@ -180,19 +180,19 @@ pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapD
 }
 
 pub fn draw_ready_frame(
-    map_interface2: SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::MapInterface>,
+    map_interface: SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::MapInterface>,
+    rx: std::sync::mpsc::Receiver<
+        SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::TaskInterface>,
+    >,
     bounds: UniquePtr<RectCoord>,
     ready_state_interface: SharedPtr<
         openmobilemaps_sys::openmobilemaps_bindings::MapReadyCallbackInterface,
     >,
     display: &Device,
     context: &mut Context,
-    map_interface: SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::MapInterface>,
-    rx: std::sync::mpsc::Receiver<
-        SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::TaskInterface>,
-    >,
     ready_state_receiver: std::sync::mpsc::Receiver<LayerReadyState>,
 ) -> Vec<u8> {
+    let map_interface2 = map_interface.clone();
     std::thread::spawn(move || {
         let map_interface = map_interface2;
         pin_mut!(map_interface).drawReadyFrame(&bounds, 10.0, &ready_state_interface);
