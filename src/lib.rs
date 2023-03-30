@@ -3,7 +3,7 @@ use euclid::Size2D;
 
 pub use gl;
 pub use openmobilemaps_sys;
-use std::default::Default;
+use std::{default::Default, time::Duration};
 use surfman::{ContextAttributeFlags, ContextAttributes, GLVersion, SurfaceAccess, SurfaceType};
 
 use openmobilemaps_sys::openmobilemaps_bindings::{
@@ -177,4 +177,64 @@ pub fn setup_map(with_invalidate: bool, with_ready: bool) -> anyhow::Result<MapD
         ready_state_interface,
         ready_state_receiver,
     ))
+}
+
+pub fn draw_ready_frame(
+    map_interface2: SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::MapInterface>,
+    bounds: UniquePtr<RectCoord>,
+    ready_state_interface: SharedPtr<
+        openmobilemaps_sys::openmobilemaps_bindings::MapReadyCallbackInterface,
+    >,
+    display: &Device,
+    context: &mut Context,
+    map_interface: SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::MapInterface>,
+    rx: std::sync::mpsc::Receiver<
+        SharedPtr<openmobilemaps_sys::openmobilemaps_bindings::TaskInterface>,
+    >,
+    ready_state_receiver: std::sync::mpsc::Receiver<LayerReadyState>,
+) -> Vec<u8> {
+    std::thread::spawn(move || {
+        let map_interface = map_interface2;
+        pin_mut!(map_interface).drawReadyFrame(&bounds, 10.0, &ready_state_interface);
+    });
+
+    let mut buffer = vec![0u8; 1200 * 630 * 4];
+
+    let _ = display.make_context_current(context);
+
+    loop {
+        pin_mut!(map_interface).drawFrame();
+        while let Ok(task) = rx.try_recv() {
+            run_task(task);
+        }
+
+        if let Ok(state) = ready_state_receiver.try_recv() {
+            if state == LayerReadyState::READY {
+                pin_mut!(map_interface).drawFrame();
+                pin_mut!(map_interface).pause();
+                while let Ok(task) = rx.try_recv() {
+                    run_task(task);
+                }
+
+                unsafe {
+                    gl::Finish();
+                    gl::ReadPixels(
+                        0,
+                        0,
+                        1200,
+                        630,
+                        gl::RGBA,
+                        gl::UNSIGNED_BYTE,
+                        buffer.as_mut_ptr() as _,
+                    );
+                }
+                break;
+            }
+        }
+
+        std::thread::yield_now();
+        std::thread::sleep(Duration::from_millis(10));
+    }
+
+    buffer
 }

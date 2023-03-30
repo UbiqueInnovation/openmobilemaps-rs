@@ -9,6 +9,7 @@ use std::sync::mpsc::Sender;
 
 use autocxx::{subclass::*, WithinUniquePtr};
 use autocxx_macro::subclass;
+use cxx::SharedPtr;
 use image::GenericImageView;
 
 use crate::ffi;
@@ -39,6 +40,14 @@ pub struct IconInfoInterfaceImpl {
     pub image_height: usize,
     pub coordinate: (String, f64, f64),
     pub anchor: (f64, f64),
+}
+
+impl IconInfoInterfaceImpl {
+    pub fn as_shared_ptr(self) -> SharedPtr<IconInfoInterface> {
+        let the_icon = IconInfoInterfaceImpl::new_cpp_owned(self);
+        let the_icon = IconInfoInterfaceImpl::as_IconInfoInterface_unique_ptr(the_icon);
+        transform_icon_info_interface(the_icon)
+    }
 }
 
 impl IconInfoInterface_methods for IconInfoInterfaceImpl {

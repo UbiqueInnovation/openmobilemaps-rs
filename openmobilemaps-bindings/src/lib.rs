@@ -1,4 +1,5 @@
 pub mod bindings;
+pub mod openstreetmap;
 
 pub use autocxx;
 pub use autocxx::cxx;
