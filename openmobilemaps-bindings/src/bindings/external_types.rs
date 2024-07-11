@@ -13,7 +13,12 @@ pub struct LoaderInterfaceWrapperImpl(pub Box<dyn LoaderInterfaceTrait>);
 
 impl Default for LoaderInterfaceWrapperImpl {
     fn default() -> Self {
-        Self(Box::new(DefaultLoaderInterface))
+        Self(Box::new(DefaultLoaderInterface(false)))
+    }
+}
+impl LoaderInterfaceWrapperImpl {
+    pub fn new(ignore_network_error: bool) -> Self {
+         Self(Box::new(DefaultLoaderInterface(ignore_network_error)))
     }
 }
 

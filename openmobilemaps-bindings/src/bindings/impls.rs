@@ -192,7 +192,7 @@ impl TextureHolderInterface_methods for TextureHolderInterfaceImpl {
     }
 }
 
-pub struct DefaultLoaderInterface;
+pub struct DefaultLoaderInterface(pub bool);
 impl Drop for DefaultLoaderInterface {
     fn drop(&mut self) {
         log::debug!("Drop default loader interface");
@@ -209,21 +209,46 @@ impl LoaderInterfaceTrait for DefaultLoaderInterface {
         let path = std::path::PathBuf::from_str(&format!("tiles/{p}")).unwrap();
         let mut databytes = vec![];
         if !path.exists() {
-            let Ok(data) = ureq::get(url.to_str().unwrap()).call() else {
-            let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
-            let tex_holder_iface =
-            TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
-            let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
-            return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER);
-        };
+            let data = match ureq::get(url.to_str().unwrap()).call() {
+                Ok(data) => data,
+                Err(e) => {
+                    let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
+                    let tex_holder_iface =
+                        TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(
+                            load_result,
+                        );
+                    let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
+                    if self.0 {
+                        return make_loader_result(tex_holder_iface, LoaderStatus::OK);
+                    } else {
+                        match e.into_response() {
+                            Some(response) => {
+                                return make_loader_result(
+                                    tex_holder_iface,
+                                    if response.status() == 400 {
+                                        LoaderStatus::ERROR_400
+                                    } else if response.status() == 404 {
+                                        LoaderStatus::ERROR_404
+                                    } else {
+                                        println!("error_network");
+                                        LoaderStatus::ERROR_NETWORK
+                                    },
+                                );
+                            }
+                            _ => return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER),
+                        }
+                    }
+                }
+            };
+            let status_code = data.status();
 
-            let Ok(_)=  data.into_reader().read_to_end(&mut databytes) else {
-            let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
-            let tex_holder_iface =
-            TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
-            let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
-            return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER);
-        };
+            let Ok(_) = data.into_reader().read_to_end(&mut databytes) else {
+                let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
+                let tex_holder_iface =
+                    TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
+                let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
+                return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER);
+            };
 
             std::fs::write(&format!("tiles/{p}"), &databytes);
         } else {
@@ -232,7 +257,7 @@ impl LoaderInterfaceTrait for DefaultLoaderInterface {
         let Ok(image) = image::load_from_memory(&databytes) else {
             let load_result = TextureHolderInterfaceImpl::default_cpp_owned();
             let tex_holder_iface =
-            TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
+                TextureHolderInterfaceImpl::as_TextureHolderInterface_unique_ptr(load_result);
             let tex_holder_iface = transform_texture_holder_interface(tex_holder_iface);
             return make_loader_result(tex_holder_iface, LoaderStatus::ERROR_OTHER);
         };

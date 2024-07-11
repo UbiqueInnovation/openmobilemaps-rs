@@ -4,7 +4,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at http://mozilla.org/MPL/2.0/.
 
-use std::pin::Pin;
+use std::{cell::UnsafeCell, pin::Pin};
 
 use autocxx::cxx::private::{SharedPtrTarget, UniquePtrTarget};
 
@@ -21,9 +21,8 @@ pub unsafe fn cxx_const_cast<T: UniquePtrTarget>(value: &T) -> Pin<&mut T> {
     //! time some API function isn't declared as `const` on the C++ side, even though it should
     //! be. In that wrapper, the same thing would be done with a C++ `const_cast<...>(...)`
     //! anyway.
-
-    #[allow(clippy::cast_ref_to_mut)]
-    Pin::new_unchecked(&mut *(value as *const T as *mut T))
+    let t  : &UnsafeCell<T> = std::mem::transmute(value);
+    Pin::new_unchecked(&mut *t.get())
 }
 
 pub unsafe fn cxx_shared_cast<T: SharedPtrTarget>(value: &T) -> Pin<&mut T> {
@@ -37,8 +36,8 @@ pub unsafe fn cxx_shared_cast<T: SharedPtrTarget>(value: &T) -> Pin<&mut T> {
     //! be. In that wrapper, the same thing would be done with a C++ `const_cast<...>(...)`
     //! anyway.
 
-    #[allow(clippy::cast_ref_to_mut)]
-    Pin::new_unchecked(&mut *(value as *const T as *mut T))
+    let t  : &UnsafeCell<T> = std::mem::transmute(value);
+    Pin::new_unchecked(&mut *t.get())
 }
 
 #[macro_export]
